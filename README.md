@@ -17,5 +17,11 @@ This tries to sniff and log data on a CAN bus.
 
 All been done before, but that's not the point...
 
+### Prerequisites
+1. Some Arduino board. I use a SparkFun Redboard:
+![SparkFun CAN-bus shield](https://cdn.sparkfun.com//assets/parts/1/1/7/2/2/13975-01.jpg)
+2. A CAN bus shield. I use SparkFun's:
+![SparkFun Redboard](https://cdn.sparkfun.com//assets/parts/1/0/4/6/6/13262-01.jpg)
+
 ## Current status
 WiP...
