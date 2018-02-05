@@ -30,6 +30,11 @@ const int chipSelect = 9;
 
 // switch between serial and uSD I/O for the main loop
 #define _USD_IO
+#ifdef _USD_IO
+#define IO_U dataFile
+#else
+#define IO_U Serial
+#endif
 
 //********************************setup loop*********************************//
 // the setup loop will use serial output for now, to be disabled later
@@ -80,50 +85,36 @@ void loop(){
 
 #ifdef _USD_IO
   // open uSD file to log data
-  File dataFile = SD.open("data.txt", FILE_WRITE);
+  File dataFile = SD.open("can.log", FILE_WRITE);
 #endif
 
   if (mcp2515_check_message())
   {
     if (mcp2515_get_message(&message))
     {
-      timeStamp = millis();
+      timeStamp = millis()*0.001 + 1000000000;
 
-#ifdef _USD_IO
-      // output received data to uSD
-      // we mimik the candump format here for easier replay
-      dataFile.print("(");
-      timeStamp /= 1000;
-      dataFile.print(timeStamp);
-      dataFile.print(") ");
-
-      dataFile.print("arcan0 ");
-      if (message.id<0x100) dataFile.print("0");
-      if (message.id<0x10)  dataFile.print("0");
-      dataFile.print(message.id,HEX);
-      dataFile.print("#");
-      dataFile.print(message.header.length,DEC);
+      // output received data to either Serial or uSD
+      // mimic the candump format here for easier replay
+      // timestamp and 'interface'
+      IO_U.print("(");
+      IO_U.print(timeStamp);
+      IO_U.print(") arcan0 ");
+      // CAN id
+      if (message.id<0x100) IO_U.print("0");
+      if (message.id<0x10)  IO_U.print("0");
+      IO_U.print(message.id,HEX);
+      IO_U.print("#");
+      // CAN payload
+      IO_U.print(message.header.length,DEC);
       for(int i=0;i<message.header.length;i++) 
       {	
-        if (message.data[i]<0x10) dataFile.print("0");
-        dataFile.print(message.data[i],HEX);
+        if (message.data[i]<0x10) IO_U.print("0");
+        IO_U.print(message.data[i],HEX);
       }
-      dataFile.println("");
-      dataFile.flush();
-#else
-       // output received data to serial console
-       Serial.print("ID: ");
-       Serial.print(message.id,HEX);
-       Serial.print(", ");
-       Serial.print("Data: ");
-       Serial.print(message.header.length,DEC);
-       for(int i=0;i<message.header.length;i++)
-       {
-         Serial.print(message.data[i],HEX);
-         Serial.print(" ");
-       }
-       Serial.println("");
-#endif
+      // CRLF and flush
+      IO_U.println("");
+      IO_U.flush();
     }
   }
 
