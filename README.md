@@ -6,7 +6,7 @@ In particular, it may do nasty things to your hardware.
 # ArduCAN
 **Ardu**ino **CAN**
 
-This does tries to sniff and log data on a CAN bus.
+This tries to sniff and log data on a CAN bus.
 
 ### General idea
 1. Get some cheap Arduino hardware
