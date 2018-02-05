@@ -1,11 +1,18 @@
 /****************************************************************************
- * CAN Read Demo for the SparkFun CAN Bus Shield. 
- * Written by Stephen McCoy. 
- * Original tutorial available here: http://www.instructables.com/id/CAN-Bus-Sniffing-and-Broadcasting-with-Arduino
- * Used with permission 2016. License CC By SA. 
+ * Based on the CAN Read Demo for the SparkFun CAN Bus Shield,
+ * written by Stephen McCoy. 
+ * His original tutorial is available here:
+ * http://www.instructables.com/id/CAN-Bus-Sniffing-and-Broadcasting-with-Arduino
+ * Used with permission 2016. License CC BY SA.
+ *
+ * Some initial extensions inspired by SparkFun's examples made available
+ * for the CAN bus shield:
+ * https://github.com/sparkfun/SparkFun_CAN-Bus_Arduino_Library
+ * 
  * Distributed as-is; no warranty is given.
- *************************************************************************/
+ ****************************************************************************/
 
+//********************************headers************************************//
 #include <Canbus.h>
 #include <defaults.h>
 #include <global.h>
@@ -13,29 +20,31 @@
 #include <mcp2515_defs.h>
 #include <SD.h>
 
+//********************************declarations*******************************//
 
-//********************************Declare stuff******************************//
-
-//Declare SD File
+// declare SD File
 File dataFile;
 
-//Initialize uSD pins
+// initialize uSD pins
 const int chipSelect = 9;
 
-//********************************Setup Loop*********************************//
+//********************************setup loop*********************************//
+// the setup loop will use serial output for now, to be disabled later
 
 void setup() {
-  Serial.begin(115200); // For debug use
-  Serial.println("CAN Read - Testing receival of CAN Bus message");  
+  // for debug use
+  Serial.begin(115200);
+  Serial.println("CAN Read - Testing receival of CAN Bus message");
   delay(250);
 
-  if(Canbus.init(CANSPEED_500))  //Initialise MCP2515 CAN controller at the specified speed
+  // initialise MCP2515 CAN controller at the specified speed
+  if(Canbus.init(CANSPEED_500))
     Serial.println("CAN Init ok");
   else
     Serial.println("Can't init CAN");
   delay(250);
 
-  //Check if uSD card initialized
+  // check if uSD card initialised
   if (!SD.begin(chipSelect)) {
     Serial.println("uSD card failed to initialize, or is not present");
     return;
@@ -46,27 +55,32 @@ void setup() {
   }   
   delay(250);
 
-  File dataFile = SD.open("data.txt", FILE_WRITE); //Open uSD file to log data
+  // open uSD file to start logging data, this will append to the file
+  File dataFile = SD.open("data.txt", FILE_WRITE);
   if (dataFile){
+    // log that we did initialise to separate different 'sessions'
     dataFile.print("Init OK");
     dataFile.println();
+    // flush and close file
     dataFile.flush();
-    dataFile.close(); //Close data logging file
+    dataFile.close();
   }
 }
 
-//********************************Main Loop*********************************//
+//********************************main loop*********************************//
+// the main loop will either use serial ouput or log to uSD
 
 void loop(){
 
   tCAN message;
 
-  File dataFile = SD.open("data.txt", FILE_WRITE); //Open uSD file to log data
+  // open uSD file to log data
+  File dataFile = SD.open("data.txt", FILE_WRITE);
   unsigned long timeStamp;
 
-  if (mcp2515_check_message()) 
+  if (mcp2515_check_message())
   {
-    if (mcp2515_get_message(&message)) 
+    if (mcp2515_get_message(&message))
     {
       timeStamp = millis();
       //if(message.id == 0x620 and message.data[2] == 0xFF)  //uncomment when you want to filter
@@ -89,7 +103,8 @@ void loop(){
        *
        */
 
-      // Output received data to uSD console
+      // output received data to uSD
+      // we mimik the candump format here for easier replay
       dataFile.print("(");
       dataFile.print(timeStamp);
       dataFile.print(") ");
@@ -113,13 +128,8 @@ void loop(){
     }
   }
 
+  // flush and close file
   dataFile.flush();
-  dataFile.close(); //Close data logging file
+  dataFile.close();
 
 }
-
-
-
-
-
-
