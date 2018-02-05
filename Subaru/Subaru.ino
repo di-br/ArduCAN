@@ -88,8 +88,6 @@ void loop(){
     if (mcp2515_get_message(&message))
     {
       timeStamp = millis();
-      //if(message.id == 0x620 and message.data[2] == 0xFF)  //uncomment when you want to filter
-      //{
 
 #ifdef _USD_IO
       // output received data to uSD
@@ -126,8 +124,6 @@ void loop(){
        }
        Serial.println("");
 #endif
-      //}
-
     }
   }
 
