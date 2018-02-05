@@ -28,6 +28,9 @@ File dataFile;
 // initialize uSD pins
 const int chipSelect = 9;
 
+// switch between serial and uSD I/O for the main loop
+#define _USD_IO
+
 //********************************setup loop*********************************//
 // the setup loop will use serial output for now, to be disabled later
 
@@ -73,10 +76,12 @@ void setup() {
 void loop(){
 
   tCAN message;
+  unsigned long timeStamp;
 
+#ifdef _USD_IO
   // open uSD file to log data
   File dataFile = SD.open("data.txt", FILE_WRITE);
-  unsigned long timeStamp;
+#endif
 
   if (mcp2515_check_message())
   {
@@ -86,26 +91,11 @@ void loop(){
       //if(message.id == 0x620 and message.data[2] == 0xFF)  //uncomment when you want to filter
       //{
 
-      /* uncomment for serial output
-       *
-       * // Output received data to serial console
-       * Serial.print("ID: ");
-       * Serial.print(message.id,HEX);
-       * Serial.print(", ");
-       * Serial.print("Data: ");
-       * Serial.print(message.header.length,DEC);
-       * for(int i=0;i<message.header.length;i++) 
-       * {	
-       *   Serial.print(message.data[i],HEX);
-       *   Serial.print(" ");
-       * }
-       * Serial.println("");
-       *
-       */
-
+#ifdef _USD_IO
       // output received data to uSD
       // we mimik the candump format here for easier replay
       dataFile.print("(");
+      timeStamp /= 1000;
       dataFile.print(timeStamp);
       dataFile.print(") ");
 
@@ -122,14 +112,29 @@ void loop(){
       }
       dataFile.println("");
       dataFile.flush();
-
+#else
+       // output received data to serial console
+       Serial.print("ID: ");
+       Serial.print(message.id,HEX);
+       Serial.print(", ");
+       Serial.print("Data: ");
+       Serial.print(message.header.length,DEC);
+       for(int i=0;i<message.header.length;i++)
+       {
+         Serial.print(message.data[i],HEX);
+         Serial.print(" ");
+       }
+       Serial.println("");
+#endif
       //}
 
     }
   }
 
+#ifdef _USD_IO
   // flush and close file
   dataFile.flush();
   dataFile.close();
+#endif
 
 }
