@@ -19,6 +19,21 @@
 #include "global.h"
 #include <SD.h>
 
+//********************************switch functionality***********************//
+
+// have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
+#define _USD_IO
+
+// log CAN frames to uSD card?
+#define _LOG
+
+// flash LEDs for break/clutch pedal
+//#define _LBC
+
+// flash LEDs when DPF regen is active
+//     not implemented (yet?)
+//#define _DPF
+
 //********************************declarations*******************************//
 
 // declare SD File
@@ -38,7 +53,6 @@ const int LED2 = 8; // green  PORTB 0
  const int LED3 = 13; // blue */
 
 // switch between serial and uSD I/O for the main loop
-#define _USD_IO
 #ifdef _USD_IO
 #define IO_U dataFile
 #else
@@ -109,6 +123,7 @@ void loop(){
     {
       if (mcp2515_get_message(&message))
       {
+#ifdef _LOG
         timeStamp = millis();
 
         // output received data to either Serial or uSD
@@ -133,27 +148,48 @@ void loop(){
         // CRLF and flush
         IO_U.println("");
         IO_U.flush();
-      }
-      // inspect CAN frame 0x411
-      if (message.id == 0x411)
-      {
-        // check for break switch
-        if (message.data[6] & 0x1<<4) {
-          SET(LED1S);
-          //IO_U.println("BREAK");
+#endif
+
+#ifdef _LBC
+        // inspect CAN frame 0x411
+        if (message.id == 0x411)
+        {
+          // check for break switch
+          if (message.data[6] & 0x1<<4) {
+            SET(LED1S);
+            //IO_U.println("BREAK");
+          }
+          else RESET(LED1S);
         }
-        else RESET(LED1S);
-      }
-      // inspect CAN frame 0x600
-      if (message.id == 0x600)
-      {
-        // check for clutch switch
-        if (message.data[6] & 0x1<<2) {
-          SET(LED2S);
-          //IO_U.println("CLUTCH");
+        // inspect CAN frame 0x600
+        if (message.id == 0x600)
+        {
+          // check for clutch switch
+          if (message.data[6] & 0x1<<2) {
+            SET(LED2S);
+            //IO_U.println("CLUTCH");
+          }
+          else RESET(LED2S);
         }
-        else RESET(LED2S);
+#endif
+
+#ifdef _DPF
+        // Hmm... initially I thought DPF regen would be announced in a CAN frame somewhere.
+        // This is not the case. So we have to query the ECU if we want to indicate this.
+        // To add some fun to this: we need ISO 15765-4 for this...
+
+        // DPF regen count: addresses 0x00029E + 0x00029D
+        // send 0x7e0 : 10 08 A8 00 00 02 9E 00
+        // receive 0x7e8 : 03 00 00 00 00 00 00 00
+        // send 0x7e0 : 21 02 9D 00 00 00 00 00
+        // receive 0x7e8 ...
+
+        // DPF regen active: address 0x0001CE
+        // send 0x7e0 : 05 A8 00 00 01 CE 00 00
+        // reveive 0x7e8 ...
+#endif
       }
+
     }
 
 #ifdef _USD_IO
@@ -163,4 +199,3 @@ void loop(){
   dataFile.close();
 #endif
 }
-
