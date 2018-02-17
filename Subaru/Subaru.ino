@@ -12,17 +12,10 @@
  * Distributed as-is; no warranty is given.
  ****************************************************************************/
 
-//********************************headers************************************//
-#include "defaults.h"
-#include "MCP2515.h"
-#include "MCP2515_defs.h"
-#include "global.h"
-#include <SD.h>
-
 //********************************switch functionality***********************//
 
 // have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
-#define _USD_IO
+//#define _USD_IO
 
 // log CAN frames to uSD card?
 #define _LOG
@@ -32,15 +25,18 @@
 
 // flash LEDs when DPF regen is active
 //     not implemented (yet?)
-#define _DPF
+//#define _DPF
+
+//********************************headers************************************//
+#include "defaults.h"
+#include "MCP2515.h"
+#include "MCP2515_defs.h"
+#include "global.h"
+#ifdef _USD_IO
+#include <SD.h>
+#endif
 
 //********************************declarations*******************************//
-
-// declare SD File
-File dataFile;
-
-// initialize uSD pins
-const int chipSelect = 9;
 
 // LEDs on the CAN shield
 const int LED1 = 7; // green  PORTD 7
@@ -54,6 +50,12 @@ const int LED2 = 8; // green  PORTB 0
 
 // switch between serial and uSD I/O for the main loop
 #ifdef _USD_IO
+// declare SD File
+File dataFile;
+
+// initialize uSD pins
+const int chipSelect = 9;
+
 #define IO_U dataFile
 #else
 #define IO_U Serial
@@ -183,13 +185,15 @@ void loop(){
     // To add some fun to this: we need ISO 15765-4 for this...
 
     // DPF regen count: addresses 0x00029E + 0x00029D
-    // send 0x7e0 : 10 08 A8 00 00 02 9E 00
-    // receive 0x7e8 : 30 00 00 00 00 00 00 00
-    //    if we see something like 31 ... or 03 ... we are asked to wait or abort
-    // send 0x7e0 : 21 02 9D 00 00 00 00 00
+    // send 0x7e0 : 10 08 A8 00 00 02 9E 00             this would be an initial frame (10)
+    //                                                  of a multiframe message
+    // receive 0x7e8 : 30 00 00 00 00 00 00 00          where we wait for a signal to go on
+    //                                                  if we see something like 31 ...
+    //                                                  or 32 ... we are asked to wait or abort
+    // send 0x7e0 : 21 02 9D 00 00 00 00 00             this is a follow up frame (21)
     // receive 0x7e8 ...
     IO_U.println("Trying to receive DPF regen count");
-    // the single frame way, rather clumsy
+    // the single frame way (msg.length < 9), rather clumsy
     tCAN tx_message;
 
     tx_message.id = 0x7e0;
@@ -346,8 +350,8 @@ void loop(){
     tx_message.data[1] = 0xA8;
     tx_message.data[2] = 0x00;
     tx_message.data[3] = 0x00;
-    tx_message.data[4] = 0x01;
-    tx_message.data[5] = 0xCE;
+    tx_message.data[4] = 0x00;//01;  00 64 is the light switch (4th bit?), so we can actually change it
+    tx_message.data[5] = 0x64;//CE;
     tx_message.data[6] = 0x00;
     tx_message.data[7] = 0x00;
 
