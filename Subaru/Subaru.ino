@@ -1,15 +1,15 @@
 /****************************************************************************
- * Based on the CAN Read Demo for the SparkFun CAN Bus Shield,
- * written by Stephen McCoy. 
- * His original tutorial is available here:
- * http://www.instructables.com/id/CAN-Bus-Sniffing-and-Broadcasting-with-Arduino
- * Used with permission 2016. License CC BY SA.
- *
- * Some initial extensions inspired by SparkFun's examples made available
- * for the CAN bus shield:
- * https://github.com/sparkfun/SparkFun_CAN-Bus_Arduino_Library
- * 
- * Distributed as-is; no warranty is given.
+   Based on the CAN Read Demo for the SparkFun CAN Bus Shield,
+   written by Stephen McCoy.
+   His original tutorial is available here:
+   http://www.instructables.com/id/CAN-Bus-Sniffing-and-Broadcasting-with-Arduino
+   Used with permission 2016. License CC BY SA.
+
+   Some initial extensions inspired by SparkFun's examples made available
+   for the CAN bus shield:
+   https://github.com/sparkfun/SparkFun_CAN-Bus_Arduino_Library
+
+   Distributed as-is; no warranty is given.
  ****************************************************************************/
 
 //********************************switch functionality***********************//
@@ -45,8 +45,8 @@ const int LED2 = 8; // green  PORTB 0
 #define LED2S B,0
 
 /* this does not blink when uSD in use?
- // LED on the RedBoard
- const int LED3 = 13; // blue */
+  // LED on the RedBoard
+  const int LED3 = 13; // blue */
 
 // switch between serial and uSD I/O for the main loop
 #ifdef _USD_IO
@@ -70,7 +70,7 @@ void setup() {
   delay(100);
 
   // initialise MCP2515 CAN controller at the specified speed
-  if(mcp2515_init(CANSPEED_500))
+  if (mcp2515_init(CANSPEED_500))
     Serial.println("CAN Init: ok");
   else
     Serial.println("CAN Init: failed");
@@ -83,10 +83,10 @@ void setup() {
     Serial.println("uSD card: failed to initialise or not present");
     return;
   }
-  else{
+  else {
     Serial.println("uSD card: initialised");
     delay(50);
-  }   
+  }
   delay(500);
 
   // open uSD file to start logging data, this will append to the file
@@ -110,7 +110,7 @@ void setup() {
 //********************************main loop*********************************//
 // the main loop will either use serial ouput or log to uSD
 
-void loop(){
+void loop() {
 
   tCAN message;
   unsigned long timeStamp;
@@ -118,7 +118,7 @@ void loop(){
 #ifdef _USD_IO
   // open uSD file to log data
   File dataFile = SD.open("can.log", FILE_WRITE);
-  if(dataFile)
+  if (dataFile)
   {
 #endif // _USD_IO
 
@@ -138,13 +138,13 @@ void loop(){
         // CAN id
         if (message.id < 0x100) IO_U.print("0");
         if (message.id < 0x10)  IO_U.print("0");
-        IO_U.print(message.id,HEX);
+        IO_U.print(message.id, HEX);
         IO_U.print("#");
         // CAN payload
-        for(int i=0;i<message.header.length;i++)
+        for (int i = 0; i < message.header.length; i++)
         {
           if (message.data[i] < 0x10) IO_U.print("0");
-          IO_U.print(message.data[i],HEX);
+          IO_U.print(message.data[i], HEX);
           IO_U.print(" ");
         }
         // CRLF and flush
@@ -157,7 +157,7 @@ void loop(){
         if (message.id == 0x411)
         {
           // check for break switch
-          if (message.data[6] & 0x1<<4)
+          if (message.data[6] & 0x1 << 4)
           {
             SET(LED1S);
             //IO_U.println("BREAK");
@@ -168,7 +168,7 @@ void loop(){
         if (message.id == 0x600)
         {
           // check for clutch switch
-          if (message.data[6] & 0x1<<2)
+          if (message.data[6] & 0x1 << 2)
           {
             SET(LED2S);
             //IO_U.println("CLUTCH");
@@ -215,7 +215,7 @@ void loop(){
     unsigned long timeout;
     timeout = millis();
 
-    mcp2515_bit_modify(CANCTRL, (1<<REQOP2)|(1<<REQOP1)|(1<<REQOP0), 0);
+    mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
     if (mcp2515_send_message(&tx_message))
     {
       IO_U.println("1st request sent");
@@ -225,7 +225,7 @@ void loop(){
     // reveive 0x7e8 ...
     // loop until we have what we want or timeout is reached
     bool MSG_RCV = false;
-    while(!MSG_RCV)
+    while (!MSG_RCV)
     {
       if (mcp2515_check_message())
       {
@@ -239,13 +239,13 @@ void loop(){
             RESET(LED2S);
             // log message
             // CAN id
-            IO_U.print(message.id,HEX);
+            IO_U.print(message.id, HEX);
             IO_U.print("#");
             // CAN payload
-            for(int i=0;i<message.header.length;i++)
+            for (int i = 0; i < message.header.length; i++)
             {
               if (message.data[i] < 0x10) IO_U.print("0");
-              IO_U.print(message.data[i],HEX);
+              IO_U.print(message.data[i], HEX);
               IO_U.print(" ");
             }
             // CRLF and flush
@@ -285,7 +285,7 @@ void loop(){
     // we will wait for the reply for 250ms
     timeout = millis();
 
-    mcp2515_bit_modify(CANCTRL, (1<<REQOP2)|(1<<REQOP1)|(1<<REQOP0), 0);
+    mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
     if (mcp2515_send_message(&tx_message))
     {
       IO_U.println("2nd request sent");
@@ -295,7 +295,7 @@ void loop(){
     // reveive 0x7e8 ...
     // loop until we have what we want or timeout is reached
     MSG_RCV = false;
-    while(!MSG_RCV)
+    while (!MSG_RCV)
     {
       if (mcp2515_check_message())
       {
@@ -309,13 +309,13 @@ void loop(){
             RESET(LED2S);
             // log message
             // CAN id
-            IO_U.print(message.id,HEX);
+            IO_U.print(message.id, HEX);
             IO_U.print("#");
             // CAN payload
-            for(int i=0;i<message.header.length;i++)
+            for (int i = 0; i < message.header.length; i++)
             {
               if (message.data[i] < 0x10) IO_U.print("0");
-              IO_U.print(message.data[i],HEX);
+              IO_U.print(message.data[i], HEX);
               IO_U.print(" ");
             }
             // CRLF and flush
@@ -341,7 +341,7 @@ void loop(){
     IO_U.println("Trying to check active DPF regen");
     // DPF regen active: address 0x0001CE
     // send 0x7e0 : 05 A8 00 00 01 CE 00 00
-//    tCAN tx_message;
+    //    tCAN tx_message;
 
     tx_message.id = 0x7e0;
     tx_message.header.rtr = 0;
@@ -359,10 +359,10 @@ void loop(){
     delay(200);
     RESET(LED1S);
     // we will wait for the reply for 250ms
-//    unsigned long timeout;
+    //    unsigned long timeout;
     timeout = millis();
 
-    mcp2515_bit_modify(CANCTRL, (1<<REQOP2)|(1<<REQOP1)|(1<<REQOP0), 0);
+    mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
     if (mcp2515_send_message(&tx_message))
     {
       IO_U.println("Request sent");
@@ -371,9 +371,9 @@ void loop(){
 
     // reveive 0x7e8 ...
     // loop until we have what we want or timeout is reached
-//    bool MSG_RCV = false;
+    //    bool MSG_RCV = false;
     MSG_RCV = false;
-    while(!MSG_RCV)
+    while (!MSG_RCV)
     {
       if (mcp2515_check_message())
       {
@@ -387,13 +387,13 @@ void loop(){
             RESET(LED2S);
             // log message
             // CAN id
-            IO_U.print(message.id,HEX);
+            IO_U.print(message.id, HEX);
             IO_U.print("#");
             // CAN payload
-            for(int i=0;i<message.header.length;i++)
+            for (int i = 0; i < message.header.length; i++)
             {
               if (message.data[i] < 0x10) IO_U.print("0");
-              IO_U.print(message.data[i],HEX);
+              IO_U.print(message.data[i], HEX);
               IO_U.print(" ");
             }
             // CRLF and flush
@@ -419,9 +419,9 @@ void loop(){
 #endif // _DPF
 
 #ifdef _USD_IO
+    // flush and close file
+    dataFile.flush();
+    dataFile.close();
   } // if(dataFile)
-  // flush and close file
-  dataFile.flush();
-  dataFile.close();
 #endif // _USD_IO
 }

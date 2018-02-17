@@ -6,7 +6,7 @@ In particular, it may do nasty things to your hardware.
 # ArduCAN
 **Ardu**ino **CAN**
 
-This tries to sniff and log data on a CAN bus.
+This tries to sniff and log data on a CAN bus. Parts also attempt to query useful data.
 
 ### General idea
 1. Get some cheap Arduino hardware
@@ -30,7 +30,7 @@ WiP...
 
 **Subaru**
 
-This sketch is built starting from SparkFun's examples on how to use their sketch. So it uses the code found there to talk to the MCP2515. It currently has three 'options' (selectable at compile time):
+This sketch is built starting from SparkFun's examples on how to use their shield. So it uses the code found [there](https://github.com/sparkfun/SparkFun_CAN-Bus_Arduino_Library) to talk to the MCP2515. It currently has three 'options' (selectable at compile time):
 
 1. Log data on high-speed bus (under steering column) to uSD. This *does work*, but seems to *loose* a lot of *frames*. I guess the sketch needs to speed up.
 2. No Arduino example seems to be complete without a form of blinken lights. So here we go: flash the two LEDs when you break or disengage the clutch. This *works*, but is rather useless.
@@ -38,7 +38,7 @@ This sketch is built starting from SparkFun's examples on how to use their sketc
 
 **AnyLog**
 
-This sketch is built starting from macchina.cc's examples using their [code base](https://github.com/macchina/mcp2515). Their library for the MCP2515 seems more complete and looked after. The sketch attemps to auto-sense the Baud rate and then simply log all frames in listen-only mode. This is broken, as in it can only log via serial console and not to the uSD card...
+This sketch is built starting from macchina.cc's examples using their [code base](https://github.com/macchina/mcp2515). Their library for the MCP2515 seems more complete and looked after. The sketch attempts to auto-sense the baud rate and then simply log all frames in listen-only mode. This is broken, as in it can only log via serial console and not to the uSD card...
 
-It will indicate with LED1 if all init steps are ok, disable LED1 if some failure occured.
+It will indicate with LED1 if all initialisation steps are ok, disable LED1 if some failure occurred.
 LED2 will be on while receiving/converting a CAN frame. 
