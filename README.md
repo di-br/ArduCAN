@@ -35,3 +35,7 @@ This sketch is built starting from SparkFun's examples on how to use their sketc
 1. Log data on high-speed bus (under steering column) to uSD. This *does work*, but seems to *loose* a lot of *frames*. I guess the sketch needs to speed up.
 2. No Arduino example seems to be complete without a form of blinken lights. So here we go: flash the two LEDs when you break or disengage the clutch. This *works*, but is rather useless.
 3. Query some simple stats for the DPF and either indicate via LED or log to uSD. This *works partially*. Indicating status via LED is still missing, querying the DPF stats is done simple minded and also seems to miss one of the answers. The general idea is there.
+
+**AnyLog**
+
+This sketch is built starting from macchina.cc's examples using their [code base](https://github.com/macchina/mcp2515). Their library for the MCP2515 seems more complete and looked after. The sketch attemps to auto-sense the Baud rate and then simply log all frames. This is broken, as in it can only log via serial console and not to the uSD card...
