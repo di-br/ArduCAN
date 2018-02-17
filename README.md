@@ -17,6 +17,8 @@ This tries to sniff and log data on a CAN bus.
 
 All been done before, but that's not the point...
 
+6. Extend the thing to interact w/ the ECU and do other useful things (this will be car specific)
+
 ### Prerequisites
 1. Some Arduino board. I use a SparkFun Redboard:
 ![SparkFun CAN-bus shield](https://cdn.sparkfun.com//assets/parts/1/1/7/2/2/13975-01.jpg)
@@ -25,3 +27,11 @@ All been done before, but that's not the point...
 
 ## Current status
 WiP...
+
+**Subaru**
+
+This sketch is built starting from SparkFun's examples on how to use their sketch. So it uses the code found there to talk to the MCP2515. It currently has three 'options' (selectable at compile time):
+
+1. Log data on high-speed bus (under steering column) to uSD. This *does work*, but seems to *loose* a lot of *frames*. I guess the sketch needs to speed up.
+2. No Arduino example seems to be complete without a form of blinken lights. So here we go: flash the two LEDs when you break or disengage the clutch. This *works*, but is rather useless.
+3. Query some simple stats for the DPF and either indicate via LED or log to uSD. This *works partially*. Indicating status via LED is still missing, querying the DPF stats is done simple minded and also seems to miss one of the answers. The general idea is there.
