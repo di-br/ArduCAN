@@ -84,14 +84,25 @@ void setup() {
   // while having it scan for a guesses CAN speed
   if (CAN.Init(0, 16))
   {
-    Serial.println("MCP2515 Init OK ...");
+    Serial.println("MCP2515: Init OK ...");
     SET(LED1S);
   } else {
-    Serial.println("MCP2515 Init Failed ...");
+    Serial.println("MCP2515: Init failed ...");
     RESET(LED1S);
   }
   delay(250);
 
+  // Now go to listen only mode to be more safe
+  if (CAN.Mode(MODE_LISTEN))
+  {
+    Serial.println("MCP2515: change to listen-only mode ...");
+    SET(LED1S);
+  } else {
+    Serial.println("MCP2515: mode change failed ...");
+    RESET(LED1S);
+  }
+  delay(250);
+  
 #ifdef _USD_IO
   // check if uSD card initialised
   if (!SD.begin(chipSelect))

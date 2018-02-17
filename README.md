@@ -38,4 +38,7 @@ This sketch is built starting from SparkFun's examples on how to use their sketc
 
 **AnyLog**
 
-This sketch is built starting from macchina.cc's examples using their [code base](https://github.com/macchina/mcp2515). Their library for the MCP2515 seems more complete and looked after. The sketch attemps to auto-sense the Baud rate and then simply log all frames. This is broken, as in it can only log via serial console and not to the uSD card...
+This sketch is built starting from macchina.cc's examples using their [code base](https://github.com/macchina/mcp2515). Their library for the MCP2515 seems more complete and looked after. The sketch attemps to auto-sense the Baud rate and then simply log all frames in listen-only mode. This is broken, as in it can only log via serial console and not to the uSD card...
+
+It will indicate with LED1 if all init steps are ok, disable LED1 if some failure occured.
+LED2 will be on while receiving/converting a CAN frame. 
