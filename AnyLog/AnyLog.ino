@@ -24,7 +24,7 @@
 //********************************switch functionality***********************//
 
 // have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
-#define _USD_IO <-- well, this kind of works, but is _way_ too slow
+//#define _USD_IO <-- well, this kind of works, but is _way_ too slow
 
 //********************************headers************************************//
 
@@ -36,25 +36,6 @@
 #include <SD.h>
 #endif
 
-//********************************declarations*******************************//
-
-// switch between serial and uSD I/O for the main loop
-#ifdef _USD_IO
-// declare SD File
-File dataFile;
-
-#define IO_U dataFile
-#else
-#define IO_U Serial
-#endif
-
-// Create CAN object with pins as defined
-MCP2515 CAN(MCP_CS_PIN, MCP_INT_PIN);
-
-void CANHandler() {
-  CAN.intHandler();
-}
-
 //********************************fiddle*************************************//
 typedef struct
 {
@@ -64,13 +45,28 @@ typedef struct
   uint8_t length;     // number of data bytes
   uint64_t data;      // 64 bits - lots of ways to access it.
 } CompactFrame;
-typedef union {
-  CompactFrame frame;
-  uint64_t raw_frame[2];
-  char char_frame[8];
-} CompactFrameUnion;
 
-CompactFrameUnion cfu;
+//********************************declarations / global variables ***********//
+
+// switch between serial and uSD I/O for the main loop
+#ifdef _USD_IO
+// declare SD File
+File dataFile;
+
+#define MAX_FRAMES 2
+CompactFrame frame_buffer[MAX_FRAMES];
+int frame_count = 0;
+#endif
+
+// CAN message frame (actually just the parts that are exposed by the MCP2515 RX/TX buffers)
+Frame message;
+
+// Create CAN object with pins as defined
+MCP2515 CAN(MCP_CS_PIN, MCP_INT_PIN);
+
+void CANHandler() {
+  CAN.intHandler();
+}
 
 //********************************setup loop*********************************//
 // the setup loop will use serial output for now, to be disabled later
@@ -162,11 +158,6 @@ void setup() {
   Serial.println("Ready ...");
 }
 
-byte i = 0;
-
-// CAN message frame (actually just the parts that are exposed by the MCP2515 RX/TX buffers)
-Frame message;
-
 //********************************main loop*********************************//
 // the main loop will either use serial ouput or log to uSD
 
@@ -174,59 +165,80 @@ void loop() {
 
   if (CAN.GetRXFrame(message)) {
     SET(LED2S);
-    // Print message
-#ifdef _USD_IO
-    cli(); // disable interrupts, this seems key to leave write operations to uSD doing their work
-    
-    // open uSD file to log data
-    File dataFile = SD.open("anycan.log", FILE_WRITE);
-    if (dataFile)
-    {
-      SET(LED1S);
-#endif // _USD_IO
-#ifndef _USD_IO
-      IO_U.print("ID: ");
-      if (message.id < 0x100) IO_U.print("0");
-      if (message.id < 0x10) IO_U.print("0");
-      IO_U.print(message.id, HEX);
-      IO_U.print(" | Extended: ");
-      if (message.extended) {
-        IO_U.print("Yes");
-      } else {
-        IO_U.print("No");
-      }
-      IO_U.print(" | Length: ");
-      IO_U.print(message.length, DEC);
-      IO_U.print(" || ");
-      for (i = 0; i < message.length; i++) {
-        if (message.data.byte[i] < 0x10) IO_U.print("0");
-        IO_U.print(message.data.byte[i], HEX);
-        IO_U.print(" ");
-      }
-      IO_U.println();
-#else  // write to uSD
-      cfu.frame.pad = 0x66;
-      cfu.frame.timestamp = millis();
-      cfu.frame.id = message.id; // the latter is 4 bytes, but we overwrite this w/ length and data?
-      cfu.frame.length = message.length;
-      cfu.frame.data = message.data.value;
-      IO_U.write((const uint8_t *)cfu.char_frame, 16);
-#endif
-      RESET(LED2S);
 
 #ifdef _USD_IO
-      Serial.println("MSG rcvd");
+#ifdef DBG
+    Serial.print("buffering...");
+#endif
+    // put message into our 'frame buffer'
+    frame_buffer[frame_count].pad = 0x66; /* this is a dummy to better identify
+                                             in the binary file (I have yet to see
+                                             0x66 in a CAN stream)
+*/
+    frame_buffer[frame_count].timestamp = millis();
+    frame_buffer[frame_count].id = message.id; // the latter is 4 bytes, but we
+    // overwrite this w/ length and data?
+    frame_buffer[frame_count].length = message.length;
+    frame_buffer[frame_count].data = message.data.value;
+    frame_count++;
+#ifdef DBG
+    Serial.println("done");
+#endif
+#else
+    Serial.print("ID: ");
+    if (message.id < 0x100) Serial.print("0");
+    if (message.id < 0x10) Serial.print("0");
+    Serial.print(message.id, HEX);
+    Serial.print(" | Extended: ");
+    if (message.extended) {
+      Serial.print("Yes");
+    } else {
+      Serial.print("No");
+    }
+    Serial.print(" | Length: ");
+    Serial.print(message.length, DEC);
+    Serial.print(" || ");
+    for (int i = 0; i < message.length; i++) {
+      if (message.data.byte[i] < 0x10) Serial.print("0");
+      Serial.print(message.data.byte[i], HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
+#endif
+    RESET(LED2S);
+  }
+
+#ifdef _USD_IO
+  // do we need to 'flush the frame_buffer'?
+  if (frame_count == MAX_FRAMES) {
+
+    cli(); // disable interrupts, this seems key to leave write operations to uSD doing their work
+
+    // open uSD file to log data
+    File dataFile = SD.open("anycan.raw", FILE_WRITE);
+    if (dataFile)
+    {
+      dataFile.write((const uint8_t *) frame_buffer, sizeof(CompactFrame) * MAX_FRAMES);
+#ifdef DBG
+      Serial.println("buffer written");
+#endif
+      
       // flush and close file
       dataFile.flush();
       dataFile.close();
-      
-      sei(); // enable interrupts, listen for MCP again?
-      
+
     } // if(dataFile)
     else {
       RESET(LED1S);
     }
-#endif // _USD_IO  
+
+    sei(); // enable interrupts, listen for MCP again?
+
+    frame_count = 0; /* we re-use the buffer no matter what
+                      so also in case we could not write to uSD
+*/
+
   }
+#endif // _USD_IO
 }
 
