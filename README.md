@@ -38,7 +38,7 @@ This sketch is built starting from SparkFun's examples on how to use their shiel
 
 **AnyLog**
 
-This sketch is built starting from macchina.cc's examples using their [code base](https://github.com/macchina/mcp2515). Their library for the MCP2515 seems more complete and looked after. The sketch attempts to auto-sense the baud rate and then simply log all frames in listen-only mode. This is broken, as in it can only log via serial console and not to the uSD card...
+This sketch is built starting from macchina.cc's examples using their [code base](https://github.com/macchina/mcp2515). Their library for the MCP2515 seems more complete and looked after. The sketch attempts to auto-sense the baud rate and then simply log all frames in listen-only mode. Logging to uSD now seems to work, not tested how many frames are lost though.
 
 It will indicate with LED1 if all initialisation steps are ok, disable LED1 if some failure occurred.
 LED2 will be on while receiving/converting a CAN frame. 

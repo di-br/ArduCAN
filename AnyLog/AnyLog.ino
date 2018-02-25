@@ -25,6 +25,7 @@
 
 // have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
 //#define _USD_IO <-- well, this kind of works, but is _way_ too slow
+//#define DBG
 
 //********************************headers************************************//
 
@@ -53,7 +54,8 @@ typedef struct
 // declare SD File
 File dataFile;
 
-#define MAX_FRAMES 2
+// how many CAN frames do we attempt to buffer?
+#define MAX_FRAMES 8
 CompactFrame frame_buffer[MAX_FRAMES];
 int frame_count = 0;
 #endif
@@ -232,11 +234,11 @@ void loop() {
       RESET(LED1S);
     }
 
-    sei(); // enable interrupts, listen for MCP again?
-
     frame_count = 0; /* we re-use the buffer no matter what
-                      so also in case we could not write to uSD
-*/
+                        so also in case we could not write to uSD
+                        */
+
+    sei(); // enable interrupts, listen for MCP again?
 
   }
 #endif // _USD_IO
