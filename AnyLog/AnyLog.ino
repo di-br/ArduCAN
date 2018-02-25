@@ -24,7 +24,7 @@
 //********************************switch functionality***********************//
 
 // have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
-//#define _USD_IO <-- this won't work
+//#define _USD_IO <-- well, this kind of works, but is _way_ too slow
 
 //********************************headers************************************//
 
@@ -43,16 +43,13 @@
 // declare SD File
 File dataFile;
 
-// initialize uSD pins
-const int chipSelect = 9;
-
 #define IO_U dataFile
 #else
 #define IO_U Serial
 #endif
 
 // Create CAN object with pins as defined
-MCP2515 CAN(CS_PIN, INT_PIN);
+MCP2515 CAN(MCP_CS_PIN, MCP_INT_PIN);
 
 void CANHandler() {
   CAN.intHandler();
@@ -89,6 +86,7 @@ void setup() {
   } else {
     Serial.println("MCP2515: Init failed ...");
     RESET(LED1S);
+    return;
   }
   delay(250);
 
@@ -102,10 +100,10 @@ void setup() {
     RESET(LED1S);
   }
   delay(250);
-  
+
 #ifdef _USD_IO
   // check if uSD card initialised
-  if (!SD.begin(chipSelect))
+  if (!SD.begin(SPI_FULL_SPEED, SD_CS_PIN))
   {
     Serial.println("uSD card: failed to initialise or not present");
     RESET(LED1S);
@@ -137,7 +135,7 @@ void setup() {
   Serial.println(" kbps ...");
 
 
-  attachInterrupt(0, CANHandler, FALLING);
+  attachInterrupt(digitalPinToInterrupt(MCP_INT_PIN), CANHandler, FALLING);
   // This code would only accept frames with ID of 0x510 - 0x51F. All other frames
   // will be ignored.
   //CAN.InitFilters(false);
@@ -157,22 +155,22 @@ Frame message;
 
 void loop() {
 
+  if (CAN.GetRXFrame(message)) {
+    SET(LED2S);
+    // Print message
 #ifdef _USD_IO
-  // open uSD file to log data
-  File dataFile = SD.open("anycan.log", FILE_WRITE);
-  if (dataFile)
-  {
-    SET(LED1S);
-#endif // _USD_IO
-
-    if (CAN.GetRXFrame(message)) {
-      SET(LED2S);
-      // Print message
-#ifdef _USD_IO
-      Serial.print("ID: ");
-      if (message.id < 0x100) Serial.print("0");
-      if (message.id < 0x10) Serial.print("0");
-      Serial.print(message.id, HEX);
+    Serial.print("ID: ");
+    if (message.id < 0x100) Serial.print("0");
+    if (message.id < 0x10) Serial.print("0");
+    Serial.println(message.id, HEX);
+    
+    cli(); // disable interrupts, this seems key to leave write operations to uSD doing their work
+    
+    // open uSD file to log data
+    File dataFile = SD.open("anycan.log", FILE_WRITE);
+    if (dataFile)
+    {
+      SET(LED1S);
 #endif // _USD_IO
       IO_U.print("ID: ");
       if (message.id < 0x100) IO_U.print("0");
@@ -194,16 +192,20 @@ void loop() {
       }
       IO_U.println();
       RESET(LED2S);
-    }
 
 #ifdef _USD_IO
-    // flush and close file
-    dataFile.flush();
-    dataFile.close();
-  } // if(dataFile)
-  else {
-    RESET(LED1S);
-  }
+      Serial.println("MSG rcvd");
+      // flush and close file
+      dataFile.flush();
+      dataFile.close();
+      
+      sei(); // enable interrupts, listen for MCP again?
+      
+    } // if(dataFile)
+    else {
+      RESET(LED1S);
+    }
 #endif // _USD_IO  
+  }
 }
 

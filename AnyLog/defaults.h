@@ -2,15 +2,21 @@
 #define	GLOBAL_H
 // ----------------------------------------------------------------------------
 
+// Pin definition for uSD card
+#define SD_CS_PIN      9
+#define SD_CS_FAST_PIN B,1
+
 // Pin definitions specific to how the MCP2515 is wired up.
-#define CS_PIN    10  // B,2
-#define INT_PIN    2  // D,2
+#define MCP_CS_PIN       10  // B,2
+#define MCP_CS_FAST_PIN  B,2
+#define MCP_INT_PIN      2   // D,2
+#define MCP_INT_FAST_PIN D,2
 
 // LEDs on the CAN shield
-const int LED1 = 7; // green  PORTD 7
-const int LED2 = 8; // green  PORTB 0
-#define LED1S D,7   // and a short-cut for speedier changes
-#define LED2S B,0
+#define LED1             7   // green  PORTD 7
+#define LED1S            D,7 // and a short-cut for speedier changes
+#define LED2             8   // green  PORTB 0
+#define LED2S            B,0
 
 #define	RESET(x)        _XRS(x)
 #define	SET(x)          _XS(x)
