@@ -35,6 +35,14 @@
 
 //presupposes little endian mode. You will need to correct this if you port to a big endian processor.
 typedef union {
+  uint32_t id;
+  struct {
+    uint16_t sid;
+    uint16_t eid;
+  };
+} IDUnion;
+
+typedef union {
     uint64_t value;
 	struct {
 		uint32_t low;

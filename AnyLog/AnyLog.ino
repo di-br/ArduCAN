@@ -24,7 +24,7 @@
 //********************************switch functionality***********************//
 
 // have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
-//#define _USD_IO <-- well, this kind of works, but is _way_ too slow
+#define _USD_IO <-- well, this kind of works, but is _way_ too slow
 
 //********************************headers************************************//
 
@@ -54,6 +54,23 @@ MCP2515 CAN(MCP_CS_PIN, MCP_INT_PIN);
 void CANHandler() {
   CAN.intHandler();
 }
+
+//********************************fiddle*************************************//
+typedef struct
+{
+  uint8_t pad;        // pad to make it 16 bytes
+  uint32_t timestamp; // timestamp of frame
+  uint16_t id;        // SID, we ignore EID for now...
+  uint8_t length;     // number of data bytes
+  uint64_t data;      // 64 bits - lots of ways to access it.
+} CompactFrame;
+typedef union {
+  CompactFrame frame;
+  uint64_t raw_frame[2];
+  char char_frame[8];
+} CompactFrameUnion;
+
+CompactFrameUnion cfu;
 
 //********************************setup loop*********************************//
 // the setup loop will use serial output for now, to be disabled later
@@ -159,11 +176,6 @@ void loop() {
     SET(LED2S);
     // Print message
 #ifdef _USD_IO
-    Serial.print("ID: ");
-    if (message.id < 0x100) Serial.print("0");
-    if (message.id < 0x10) Serial.print("0");
-    Serial.println(message.id, HEX);
-    
     cli(); // disable interrupts, this seems key to leave write operations to uSD doing their work
     
     // open uSD file to log data
@@ -172,6 +184,7 @@ void loop() {
     {
       SET(LED1S);
 #endif // _USD_IO
+#ifndef _USD_IO
       IO_U.print("ID: ");
       if (message.id < 0x100) IO_U.print("0");
       if (message.id < 0x10) IO_U.print("0");
@@ -191,6 +204,14 @@ void loop() {
         IO_U.print(" ");
       }
       IO_U.println();
+#else  // write to uSD
+      cfu.frame.pad = 0x66;
+      cfu.frame.timestamp = millis();
+      cfu.frame.id = message.id; // the latter is 4 bytes, but we overwrite this w/ length and data?
+      cfu.frame.length = message.length;
+      cfu.frame.data = message.data.value;
+      IO_U.write((const uint8_t *)cfu.char_frame, 16);
+#endif
       RESET(LED2S);
 
 #ifdef _USD_IO
