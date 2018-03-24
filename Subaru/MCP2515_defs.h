@@ -21,14 +21,17 @@
  */
 /*@{*/
 #define RXF0SIDH	0x00
+#define FILTER0   RXF0SIDH
 #define RXF0SIDL	0x01
 #define RXF0EID8	0x02
 #define RXF0EID0	0x03
 #define RXF1SIDH	0x04
+#define FILTER1   RXF1SIDH
 #define RXF1SIDL	0x05
 #define RXF1EID8	0x06
 #define RXF1EID0	0x07
 #define RXF2SIDH	0x08
+#define FILTER2   RXF2SIDH
 #define RXF2SIDL	0x09
 #define RXF2EID8	0x0A
 #define RXF2EID0	0x0B
@@ -38,14 +41,17 @@
 #define CANCTRL		0x0F
 
 #define RXF3SIDH	0x10
+#define FILTER3   RXF3SIDH
 #define RXF3SIDL	0x11
 #define RXF3EID8	0x12
 #define RXF3EID0	0x13
 #define RXF4SIDH	0x14
+#define FILTER4   RXF4SIDH
 #define RXF4SIDL	0x15
 #define RXF4EID8	0x16
 #define RXF4EID0	0x17
 #define RXF5SIDH	0x18
+#define FILTER5   RXF5SIDH
 #define RXF5SIDL	0x19
 #define RXF5EID8	0x1A
 #define RXF5EID0	0x1B
@@ -53,10 +59,12 @@
 #define REC         0x1D
 
 #define RXM0SIDH	0x20
+#define MASK0   RXM0SIDH
 #define RXM0SIDL	0x21
 #define RXM0EID8	0x22
 #define RXM0EID0	0x23
 #define RXM1SIDH	0x24
+#define MASK1   RXM1SIDH
 #define RXM1SIDL	0x25
 #define RXM1EID8	0x26
 #define RXM1EID0	0x27

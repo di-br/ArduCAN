@@ -1,28 +1,28 @@
 /* Copyright (c) 2007 Fabian Greif
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */
+   All rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+
+   THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+*/
 // ----------------------------------------------------------------------------
 
 
@@ -51,7 +51,7 @@ uint8_t spi_putc( uint8_t data )
   SPDR = data;
 
   // wait until byte was send
-  while( !( SPSR & (1<<SPIF) ) )
+  while ( !( SPSR & (1 << SPIF) ) )
     ;
 
   return SPDR;
@@ -70,6 +70,22 @@ void mcp2515_write_register( uint8_t adress, uint8_t data )
 }
 
 // -------------------------------------------------------------------------
+void mcp2515_write_long_register( uint8_t address, uint8_t data[], uint8_t bytes )
+{
+  uint8_t i;
+
+  RESET(MCP2515_CS);
+
+  spi_putc(SPI_WRITE);
+  spi_putc(address);
+  for (i = 0; i < bytes; i++) {
+    spi_putc(data[i]);
+  }
+
+  SET(MCP2515_CS);
+}
+
+// -------------------------------------------------------------------------
 uint8_t mcp2515_read_register(uint8_t adress)
 {
   uint8_t data;
@@ -79,7 +95,7 @@ uint8_t mcp2515_read_register(uint8_t adress)
   spi_putc(SPI_READ);
   spi_putc(adress);
 
-  data = spi_putc(0xff);	
+  data = spi_putc(0xff);
 
   SET(MCP2515_CS);
 
@@ -115,6 +131,64 @@ uint8_t mcp2515_read_status(uint8_t type)
 }
 
 // -------------------------------------------------------------------------
+/*
+   This is taken from macchina.cc.
+
+   WE DO NOT SUPPORT EXTENDED FRAMES HERE FOR BREVITY !
+
+   reg:
+     FILTER0, FILTER1, FILTER2, FILTER3, FILTER4, FILTER5
+     or
+     MASK1 or MASK2
+   value:
+     FilterValue or MaskValue, 11 bits in our case
+*/
+void mcp2515_set_mask_or_filter(uint8_t reg, long value)
+{
+  uint8_t temp_buff[4];
+  uint8_t mode;
+
+  // get the current mode we're in to restore it later
+  mode = mcp2515_read_register(CANSTAT);
+  // put chip in config mode
+  mcp2515_write_register(CANCTRL, 0x80);
+
+  // construct register value
+  temp_buff[0] = ((value << 21) >> 24);
+  temp_buff[1] = ((value << 29) >> 24) & B11100000;
+  temp_buff[2] = 0;
+  temp_buff[3] = 0;
+
+  mcp2515_write_long_register(reg, temp_buff, 4);
+
+  // restore previous mode
+  mcp2515_write_register(CANCTRL, mode);
+}
+
+// -------------------------------------------------------------------------
+/* initialise all filters/masks to either accept or drop all
+   permissive = false to drop all
+*/
+void mcp2515_init_filters(bool permissive)
+{
+  long value;
+  if (permissive) {
+    value = 0;
+  }
+  else {
+    value = 0x7FF; //all 11 bits set
+  }
+  mcp2515_set_mask_or_filter(MASK0, value);
+  mcp2515_set_mask_or_filter(MASK1, value);
+  mcp2515_set_mask_or_filter(FILTER0, value);
+  mcp2515_set_mask_or_filter(FILTER1, value);
+  mcp2515_set_mask_or_filter(FILTER2, value);
+  mcp2515_set_mask_or_filter(FILTER3, value);
+  mcp2515_set_mask_or_filter(FILTER4, value);
+  mcp2515_set_mask_or_filter(FILTER5, value);
+}
+
+// -------------------------------------------------------------------------
 uint8_t mcp2515_init(uint8_t speed)
 {
 
@@ -134,7 +208,7 @@ uint8_t mcp2515_init(uint8_t speed)
   SET(MCP2515_INT);
 
   // active SPI master interface
-  SPCR = (1<<SPE)|(1<<MSTR) | (0<<SPR1)|(1<<SPR0);
+  SPCR = (1 << SPE) | (1 << MSTR) | (0 << SPR1) | (1 << SPR0);
   SPSR = 0;
 
   // reset MCP2515 by software reset.
@@ -154,19 +228,19 @@ uint8_t mcp2515_init(uint8_t speed)
   /*	spi_putc((1<<PHSEG21));		// Bitrate 125 kbps at 16 MHz
    	spi_putc((1<<BTLMODE)|(1<<PHSEG11));
    	spi_putc((1<<BRP2)|(1<<BRP1)|(1<<BRP0));
-   */
-  /*	
+  */
+  /*
    	spi_putc((1<<PHSEG21));		// Bitrate 250 kbps at 16 MHz
    	spi_putc((1<<BTLMODE)|(1<<PHSEG11));
    	spi_putc((1<<BRP1)|(1<<BRP0));
-   */
-  spi_putc((1<<PHSEG21));		// Bitrate 250 kbps at 16 MHz
-  spi_putc((1<<BTLMODE)|(1<<PHSEG11));
+  */
+  spi_putc((1 << PHSEG21));		// Bitrate 250 kbps at 16 MHz
+  spi_putc((1 << BTLMODE) | (1 << PHSEG11));
   //spi_putc(1<<BRP0);
   spi_putc(speed);
 
   // activate interrupts
-  spi_putc((1<<RX1IE)|(1<<RX0IE));
+  spi_putc((1 << RX1IE) | (1 << RX0IE));
   SET(MCP2515_CS);
 
   // test if we could read back the value => is the chip accessible?
@@ -183,8 +257,16 @@ uint8_t mcp2515_init(uint8_t speed)
   mcp2515_write_register(TXRTSCTRL, 0);
 
   // turn off filters => receive any message
-  mcp2515_write_register(RXB0CTRL, (1<<RXM1)|(1<<RXM0));
-  mcp2515_write_register(RXB1CTRL, (1<<RXM1)|(1<<RXM0));
+  mcp2515_write_register(RXB0CTRL, (1 << RXM1) | (1 << RXM0));
+  mcp2515_write_register(RXB1CTRL, (1 << RXM1) | (1 << RXM0));
+  // RXM1 RXM0
+  //    1    1  Turn mask/filters off; receive any message
+  //    1    0  Receive only valid messages with extended identifiers that meet filter criteria
+  //    0    1  Receive only valid messages with standard identifiers that meet filter criteria
+  //    0    0  Receive all valid messages using either standard or extended identifiers that meet filter criteria
+  // enable full filtering
+  mcp2515_write_register(RXB0CTRL, (0 << RXM1) | (0 << RXM0));
+  mcp2515_write_register(RXB1CTRL, (0 << RXM1) | (0 << RXM0));
 
   // reset device to normal mode
   mcp2515_write_register(CANCTRL, 0);
@@ -221,11 +303,11 @@ uint8_t mcp2515_get_message(tCAN *message)
   uint8_t status = mcp2515_read_status(SPI_RX_STATUS);
   uint8_t addr;
   uint8_t t;
-  if (bit_is_set(status,6)) {
+  if (bit_is_set(status, 6)) {
     // message in buffer 0
     addr = SPI_READ_RX;
   }
-  else if (bit_is_set(status,7)) {
+  else if (bit_is_set(status, 7)) {
     // message in buffer 1
     addr = SPI_READ_RX | 0x04;
   }
@@ -251,17 +333,17 @@ uint8_t mcp2515_get_message(tCAN *message)
   message->header.rtr = (bit_is_set(status, 3)) ? 1 : 0;
 
   // read data
-  for (t=0;t<length;t++) {
+  for (t = 0; t < length; t++) {
     message->data[t] = spi_putc(0xff);
   }
   SET(MCP2515_CS);
 
   // clear interrupt flag
   if (bit_is_set(status, 6)) {
-    mcp2515_bit_modify(CANINTF, (1<<RX0IF), 0);
+    mcp2515_bit_modify(CANINTF, (1 << RX0IF), 0);
   }
   else {
-    mcp2515_bit_modify(CANINTF, (1<<RX1IF), 0);
+    mcp2515_bit_modify(CANINTF, (1 << RX1IF), 0);
   }
 
   return (status & 0x07) + 1;
@@ -273,12 +355,12 @@ uint8_t mcp2515_send_message(tCAN *message)
   uint8_t status = mcp2515_read_status(SPI_READ_STATUS);
 
   /* Statusbyte:
-   	 *
-   	 * Bit	Function
-   	 *  2	TXB0CNTRL.TXREQ
-   	 *  4	TXB1CNTRL.TXREQ
-   	 *  6	TXB2CNTRL.TXREQ
-   	 */
+
+   	  Bit	Function
+   	   2	TXB0CNTRL.TXREQ
+   	   4	TXB1CNTRL.TXREQ
+   	   6	TXB2CNTRL.TXREQ
+  */
   uint8_t address;
   uint8_t t;
   //	SET(LED2_HIGH);
@@ -287,7 +369,7 @@ uint8_t mcp2515_send_message(tCAN *message)
   }
   else if (bit_is_clear(status, 4)) {
     address = 0x02;
-  } 
+  }
   else if (bit_is_clear(status, 6)) {
     address = 0x04;
   }
@@ -309,14 +391,14 @@ uint8_t mcp2515_send_message(tCAN *message)
 
   if (message->header.rtr) {
     // a rtr-frame has a length, but contains no data
-    spi_putc((1<<RTR) | length);
+    spi_putc((1 << RTR) | length);
   }
   else {
     // set message length
     spi_putc(length);
 
     // data
-    for (t=0;t<length;t++) {
+    for (t = 0; t < length; t++) {
       spi_putc(message->data[t]);
     }
   }

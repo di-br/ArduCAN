@@ -105,6 +105,19 @@ void setup() {
   // finish by setting up LEDs
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
+
+  // accept all frames
+  mcp2515_init_filters(true);
+
+#ifdef _DPF
+  // accept no frames unless filtered
+  mcp2515_init_filters(false);
+  mcp2515_set_mask_or_filter(MASK0, 0x7F0);
+  mcp2515_set_mask_or_filter(FILTER0, 0x7E8);
+  mcp2515_set_mask_or_filter(MASK1, 0x7F0);
+  mcp2515_set_mask_or_filter(FILTER2, 0x7E8);
+#endif
+
 }
 
 //********************************main loop*********************************//

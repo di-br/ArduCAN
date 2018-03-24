@@ -62,8 +62,11 @@ uint8_t length :
   void mcp2515_write_register( uint8_t adress, uint8_t data );
 
   // ----------------------------------------------------------------------------
-  uint8_t mcp2515_read_register(uint8_t adress);
+  void mcp2515_write_long_register( uint8_t adress, uint8_t data[], uint8_t bytes );
 
+  // ----------------------------------------------------------------------------
+  uint8_t mcp2515_read_register(uint8_t adress);
+  
   // ----------------------------------------------------------------------------
   void mcp2515_bit_modify(uint8_t adress, uint8_t mask, uint8_t data);
 
@@ -71,8 +74,13 @@ uint8_t length :
   uint8_t mcp2515_read_status(uint8_t type);
 
   // ----------------------------------------------------------------------------
-
   uint8_t mcp2515_init(uint8_t speed);
+
+  // ----------------------------------------------------------------------------
+  void mcp2515_set_mask_or_filter(uint8_t reg, long value);
+
+  // ----------------------------------------------------------------------------
+  void mcp2515_init_filters(bool permissive);
 
   // ----------------------------------------------------------------------------
   // check if there are any new messages waiting
