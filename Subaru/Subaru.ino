@@ -218,72 +218,11 @@ void loop() {
 
     uint8_t byte1;
     uint8_t byte2;
-    tCAN req;
-    if ( read_address(0x029D, &byte1, &message, &req) )
+    if ( read_address(0x029D, &byte1) )
     {
-              // CAN id
-        if (req.id < 0x100) IO_U.print("0");
-        if (req.id < 0x10)  IO_U.print("0");
-        IO_U.print(req.id, HEX);
-        IO_U.print("#");
-        // CAN payload
-        for (int i = 0; i < req.header.length; i++)
-        {
-          if (req.data[i] < 0x10) IO_U.print("0");
-          IO_U.print(req.data[i], HEX);
-          IO_U.print(" ");
-        }
-        // CRLF and flush
-        IO_U.println("");
-        IO_U.flush();
-                        // CAN id
-        if (message.id < 0x100) IO_U.print("0");
-        if (message.id < 0x10)  IO_U.print("0");
-        IO_U.print(message.id, HEX);
-        IO_U.print("#");
-        // CAN payload
-        for (int i = 0; i < message.header.length; i++)
-        {
-          if (message.data[i] < 0x10) IO_U.print("0");
-          IO_U.print(message.data[i], HEX);
-          IO_U.print(" ");
-        }
-        // CRLF and flush
-        IO_U.println("");
-        IO_U.flush();
       IO_U.println("1st answer received");
-      if ( read_address(0x029E, &byte2, &message, &req) )
+      if ( read_address(0x029E, &byte2) )
       {
-                // CAN id
-        if (req.id < 0x100) IO_U.print("0");
-        if (req.id < 0x10)  IO_U.print("0");
-        IO_U.print(req.id, HEX);
-        IO_U.print("#");
-        // CAN payload
-        for (int i = 0; i < req.header.length; i++)
-        {
-          if (req.data[i] < 0x10) IO_U.print("0");
-          IO_U.print(req.data[i], HEX);
-          IO_U.print(" ");
-        }
-        // CRLF and flush
-        IO_U.println("");
-        IO_U.flush();
-                        // CAN id
-        if (message.id < 0x100) IO_U.print("0");
-        if (message.id < 0x10)  IO_U.print("0");
-        IO_U.print(message.id, HEX);
-        IO_U.print("#");
-        // CAN payload
-        for (int i = 0; i < message.header.length; i++)
-        {
-          if (message.data[i] < 0x10) IO_U.print("0");
-          IO_U.print(message.data[i], HEX);
-          IO_U.print(" ");
-        }
-        // CRLF and flush
-        IO_U.println("");
-        IO_U.flush();
         IO_U.println("2nd answer received");
         IO_U.print("DPF regen count: ");
         IO_U.println(byte1 * 256 + byte2);
@@ -294,29 +233,14 @@ void loop() {
 
 
     IO_U.println("Trying to check active DPF regen");
-    // DPF regen active: address 0x0001CE  // 00 64 is the light switch (4th bit?), so we can actually change it
+    // DPF regen active: address 0x0001CE  // 00 64 is the light switch (4th bit?), so we can actually change it for testing
     // send 0x7e0 : 05 A8 00 00 01 CE 00 00
-    if ( read_address(0x0064, &byte1, &message, &req) )
+    if ( read_address(0x0064, &byte1) )
     {
-              // CAN id
-        if (message.id < 0x100) IO_U.print("0");
-        if (message.id < 0x10)  IO_U.print("0");
-        IO_U.print(message.id, HEX);
-        IO_U.print("#");
-        // CAN payload
-        for (int i = 0; i < message.header.length; i++)
-        {
-          if (message.data[i] < 0x10) IO_U.print("0");
-          IO_U.print(message.data[i], HEX);
-          IO_U.print(" ");
-        }
-        // CRLF and flush
-        IO_U.println("");
-        IO_U.flush();
       IO_U.print("answer received: ");
       IO_U.println(byte1, HEX);
-      if ( (byte1 & (1 << 4)) != 0 )
-      {
+      if ( (byte1 & (1 << 3)) != 0 ) // we look for 0000 1000 or 0000 0000
+      {                              //                  \_ the 4th bit
         IO_U.println("Light on");
       }
       else
@@ -338,7 +262,7 @@ void loop() {
 
 // query a single address from the ECU and return answer
 // this will do single frame queries and try to gracefully timeout
-bool read_address(uint16_t id, uint8_t *answer, tCAN *msg, tCAN *req) {
+bool read_address(uint16_t id, uint8_t *answer) {
 
   IDUnion tmpid;
   tCAN rtx_message;
@@ -355,17 +279,6 @@ bool read_address(uint16_t id, uint8_t *answer, tCAN *msg, tCAN *req) {
   rtx_message.data[5] = tmpid.id_lo;
   rtx_message.data[6] = 0x00;
   rtx_message.data[7] = 0x00;
-
-              req->id = rtx_message.id;
-              req->header.length = rtx_message.header.length;
-              req->data[0] = rtx_message.data[0];
-              req->data[1] = rtx_message.data[1];
-              req->data[2] = rtx_message.data[2];
-              req->data[3] = rtx_message.data[3];
-              req->data[4] = rtx_message.data[4];
-              req->data[5] = rtx_message.data[5];
-              req->data[6] = rtx_message.data[6];
-              req->data[7] = rtx_message.data[7];
 
   // indicate transmit
   SET(LED1S);
@@ -400,26 +313,16 @@ bool read_address(uint16_t id, uint8_t *answer, tCAN *msg, tCAN *req) {
             {
               // we have what seems to be a valid answer, return in
               *answer = rtx_message.data[2];
-              msg->id = rtx_message.id;
-              msg->header.length = rtx_message.header.length;
-              msg->data[0] = rtx_message.data[0];
-              msg->data[1] = rtx_message.data[1];
-              msg->data[2] = rtx_message.data[2];
-              msg->data[3] = rtx_message.data[3];
-              msg->data[4] = rtx_message.data[4];
-              msg->data[5] = rtx_message.data[5];
-              msg->data[6] = rtx_message.data[6];
-              msg->data[7] = rtx_message.data[7];
               return true;
             }
             else
             {
-              IO_U.println(rtx_message.data[1], HEX);
+              Serial.println(rtx_message.data[1], HEX);
             }
           }
           else
           {
-            IO_U.println(rtx_message.data[0], HEX);
+            Serial.println(rtx_message.data[0], HEX);
           }
         }
         MSG_RCV = true; // we received our answer anyway, although might be erroneous
