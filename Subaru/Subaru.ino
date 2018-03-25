@@ -15,17 +15,17 @@
 //********************************switch functionality***********************//
 
 // have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
-//#define _USD_IO
+#define _USD_IO
 
 // log CAN frames to uSD card?
-#define _LOG
+//#define _LOG
 
 // flash LEDs for break/clutch pedal
 //#define _LBC
 
 // flash LEDs when DPF regen is active
 //     not implemented (yet?)
-//#define _DPF
+#define _DPF
 
 //********************************headers************************************//
 #include "defaults.h"
@@ -60,6 +60,14 @@ const int chipSelect = 9;
 #else
 #define IO_U Serial
 #endif
+
+typedef union {
+  uint16_t id;
+  struct {
+    uint8_t id_lo;
+    uint8_t id_hi;
+  };
+} IDUnion;
 
 //********************************setup loop*********************************//
 // the setup loop will use serial output for now, to be disabled later
@@ -207,227 +215,116 @@ void loop() {
     // receive 0x7e8 ...
     IO_U.println("Trying to receive DPF regen count");
     // the single frame way (msg.length < 9), rather clumsy
-    tCAN tx_message;
 
-    tx_message.id = 0x7e0;
-    tx_message.header.rtr = 0;
-    tx_message.header.length = 8;
-    tx_message.data[0] = 0x05;
-    tx_message.data[1] = 0xA8;
-    tx_message.data[2] = 0x00;
-    tx_message.data[3] = 0x00;
-    tx_message.data[4] = 0x02;
-    tx_message.data[5] = 0x9E;
-    tx_message.data[6] = 0x00;
-    tx_message.data[7] = 0x00;
-
-    SET(LED1S);
-    delay(200);
-    RESET(LED1S);
-    // we will wait for the reply for 250ms
-    unsigned long timeout;
-    timeout = millis();
-
-    mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
-    if (mcp2515_send_message(&tx_message))
+    uint8_t byte1;
+    uint8_t byte2;
+    tCAN req;
+    if ( read_address(0x029D, &byte1, &message, &req) )
     {
-      IO_U.println("1st request sent");
-    }
-    else IO_U.println("Some error...");
-
-    // reveive 0x7e8 ...
-    // loop until we have what we want or timeout is reached
-    bool MSG_RCV = false;
-    while (!MSG_RCV)
-    {
-      if (mcp2515_check_message())
-      {
-        if (mcp2515_get_message(&message))
+              // CAN id
+        if (req.id < 0x100) IO_U.print("0");
+        if (req.id < 0x10)  IO_U.print("0");
+        IO_U.print(req.id, HEX);
+        IO_U.print("#");
+        // CAN payload
+        for (int i = 0; i < req.header.length; i++)
         {
-          if (message.id == 0x7e8)
-          {
-            IO_U.println("1st answer received:");
-            SET(LED2S);
-            delay(200);
-            RESET(LED2S);
-            // log message
-            // CAN id
-            IO_U.print(message.id, HEX);
-            IO_U.print("#");
-            // CAN payload
-            for (int i = 0; i < message.header.length; i++)
-            {
-              if (message.data[i] < 0x10) IO_U.print("0");
-              IO_U.print(message.data[i], HEX);
-              IO_U.print(" ");
-            }
-            // CRLF and flush
-            IO_U.println("");
-            IO_U.flush();
-            MSG_RCV = true;
-          }
-          else MSG_RCV = false;
+          if (req.data[i] < 0x10) IO_U.print("0");
+          IO_U.print(req.data[i], HEX);
+          IO_U.print(" ");
         }
-      }
-      if (millis() > timeout + 250)
-      {
-        MSG_RCV = true;
-        SET(LED1S);
-        SET(LED2S);
-        delay(200);
-        RESET(LED1S);
-        RESET(LED2S);
-        IO_U.println("1st reply timed out");
-      }
-    }
-    tx_message.id = 0x7e0;
-    tx_message.header.rtr = 0;
-    tx_message.header.length = 8;
-    tx_message.data[0] = 0x05;
-    tx_message.data[1] = 0xA8;
-    tx_message.data[2] = 0x00;
-    tx_message.data[3] = 0x00;
-    tx_message.data[4] = 0x02;
-    tx_message.data[5] = 0x9D;
-    tx_message.data[6] = 0x00;
-    tx_message.data[7] = 0x00;
-
-    SET(LED1S);
-    delay(200);
-    RESET(LED1S);
-    // we will wait for the reply for 250ms
-    timeout = millis();
-
-    mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
-    if (mcp2515_send_message(&tx_message))
-    {
-      IO_U.println("2nd request sent");
-    }
-    else IO_U.println("Some error...");
-
-    // reveive 0x7e8 ...
-    // loop until we have what we want or timeout is reached
-    MSG_RCV = false;
-    while (!MSG_RCV)
-    {
-      if (mcp2515_check_message())
-      {
-        if (mcp2515_get_message(&message))
+        // CRLF and flush
+        IO_U.println("");
+        IO_U.flush();
+                        // CAN id
+        if (message.id < 0x100) IO_U.print("0");
+        if (message.id < 0x10)  IO_U.print("0");
+        IO_U.print(message.id, HEX);
+        IO_U.print("#");
+        // CAN payload
+        for (int i = 0; i < message.header.length; i++)
         {
-          if (message.id == 0x7e8)
-          {
-            IO_U.println("2nd answer received:");
-            SET(LED2S);
-            delay(200);
-            RESET(LED2S);
-            // log message
-            // CAN id
-            IO_U.print(message.id, HEX);
-            IO_U.print("#");
-            // CAN payload
-            for (int i = 0; i < message.header.length; i++)
-            {
-              if (message.data[i] < 0x10) IO_U.print("0");
-              IO_U.print(message.data[i], HEX);
-              IO_U.print(" ");
-            }
-            // CRLF and flush
-            IO_U.println("");
-            IO_U.flush();
-            MSG_RCV = true;
-          }
-          else MSG_RCV = false;
+          if (message.data[i] < 0x10) IO_U.print("0");
+          IO_U.print(message.data[i], HEX);
+          IO_U.print(" ");
         }
-      }
-      if (millis() > timeout + 250)
+        // CRLF and flush
+        IO_U.println("");
+        IO_U.flush();
+      IO_U.println("1st answer received");
+      if ( read_address(0x029E, &byte2, &message, &req) )
       {
-        MSG_RCV = true;
-        IO_U.println("2nd reply timed out");
-        SET(LED1S);
-        SET(LED2S);
-        delay(200);
-        RESET(LED1S);
-        RESET(LED2S);
+                // CAN id
+        if (req.id < 0x100) IO_U.print("0");
+        if (req.id < 0x10)  IO_U.print("0");
+        IO_U.print(req.id, HEX);
+        IO_U.print("#");
+        // CAN payload
+        for (int i = 0; i < req.header.length; i++)
+        {
+          if (req.data[i] < 0x10) IO_U.print("0");
+          IO_U.print(req.data[i], HEX);
+          IO_U.print(" ");
+        }
+        // CRLF and flush
+        IO_U.println("");
+        IO_U.flush();
+                        // CAN id
+        if (message.id < 0x100) IO_U.print("0");
+        if (message.id < 0x10)  IO_U.print("0");
+        IO_U.print(message.id, HEX);
+        IO_U.print("#");
+        // CAN payload
+        for (int i = 0; i < message.header.length; i++)
+        {
+          if (message.data[i] < 0x10) IO_U.print("0");
+          IO_U.print(message.data[i], HEX);
+          IO_U.print(" ");
+        }
+        // CRLF and flush
+        IO_U.println("");
+        IO_U.flush();
+        IO_U.println("2nd answer received");
+        IO_U.print("DPF regen count: ");
+        IO_U.println(byte1 * 256 + byte2);
       }
+      else IO_U.println("Some error with 2nd query...");
     }
+    else IO_U.println("Some error with 1st query...");
+
 
     IO_U.println("Trying to check active DPF regen");
-    // DPF regen active: address 0x0001CE
+    // DPF regen active: address 0x0001CE  // 00 64 is the light switch (4th bit?), so we can actually change it
     // send 0x7e0 : 05 A8 00 00 01 CE 00 00
-    //    tCAN tx_message;
-
-    tx_message.id = 0x7e0;
-    tx_message.header.rtr = 0;
-    tx_message.header.length = 8;
-    tx_message.data[0] = 0x05;
-    tx_message.data[1] = 0xA8;
-    tx_message.data[2] = 0x00;
-    tx_message.data[3] = 0x00;
-    tx_message.data[4] = 0x00;//01;  00 64 is the light switch (4th bit?), so we can actually change it
-    tx_message.data[5] = 0x64;//CE;
-    tx_message.data[6] = 0x00;
-    tx_message.data[7] = 0x00;
-
-    SET(LED1S);
-    delay(200);
-    RESET(LED1S);
-    // we will wait for the reply for 250ms
-    //    unsigned long timeout;
-    timeout = millis();
-
-    mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
-    if (mcp2515_send_message(&tx_message))
+    if ( read_address(0x0064, &byte1, &message, &req) )
     {
-      IO_U.println("Request sent");
-    }
-    else IO_U.println("Some error...");
-
-    // reveive 0x7e8 ...
-    // loop until we have what we want or timeout is reached
-    //    bool MSG_RCV = false;
-    MSG_RCV = false;
-    while (!MSG_RCV)
-    {
-      if (mcp2515_check_message())
-      {
-        if (mcp2515_get_message(&message))
+              // CAN id
+        if (message.id < 0x100) IO_U.print("0");
+        if (message.id < 0x10)  IO_U.print("0");
+        IO_U.print(message.id, HEX);
+        IO_U.print("#");
+        // CAN payload
+        for (int i = 0; i < message.header.length; i++)
         {
-          if (message.id == 0x7e8)
-          {
-            IO_U.println("Answer received:");
-            SET(LED2S);
-            delay(200);
-            RESET(LED2S);
-            // log message
-            // CAN id
-            IO_U.print(message.id, HEX);
-            IO_U.print("#");
-            // CAN payload
-            for (int i = 0; i < message.header.length; i++)
-            {
-              if (message.data[i] < 0x10) IO_U.print("0");
-              IO_U.print(message.data[i], HEX);
-              IO_U.print(" ");
-            }
-            // CRLF and flush
-            IO_U.println("");
-            IO_U.flush();
-            MSG_RCV = true;
-          }
-          else MSG_RCV = false;
+          if (message.data[i] < 0x10) IO_U.print("0");
+          IO_U.print(message.data[i], HEX);
+          IO_U.print(" ");
         }
-      }
-      if (millis() > timeout + 250)
+        // CRLF and flush
+        IO_U.println("");
+        IO_U.flush();
+      IO_U.print("answer received: ");
+      IO_U.println(byte1, HEX);
+      if ( (byte1 & (1 << 4)) != 0 )
       {
-        MSG_RCV = true;
-        IO_U.println("Reply timed out");
-        SET(LED1S);
-        SET(LED2S);
-        delay(200);
-        RESET(LED1S);
-        RESET(LED2S);
+        IO_U.println("Light on");
+      }
+      else
+      {
+        IO_U.println("Light off");
       }
     }
+
     delay(5000);
 #endif // _DPF
 
@@ -437,4 +334,110 @@ void loop() {
     dataFile.close();
   } // if(dataFile)
 #endif // _USD_IO
+}
+
+// query a single address from the ECU and return answer
+// this will do single frame queries and try to gracefully timeout
+bool read_address(uint16_t id, uint8_t *answer, tCAN *msg, tCAN *req) {
+
+  IDUnion tmpid;
+  tCAN rtx_message;
+
+  tmpid.id = id;
+  rtx_message.id = 0x7e0;
+  rtx_message.header.rtr = 0;
+  rtx_message.header.length = 8; // always needs to 8 bytes (SSM)
+  rtx_message.data[0] = 0x05;
+  rtx_message.data[1] = 0xA8;
+  rtx_message.data[2] = 0x00;
+  rtx_message.data[3] = 0x00;
+  rtx_message.data[4] = tmpid.id_hi;
+  rtx_message.data[5] = tmpid.id_lo;
+  rtx_message.data[6] = 0x00;
+  rtx_message.data[7] = 0x00;
+
+              req->id = rtx_message.id;
+              req->header.length = rtx_message.header.length;
+              req->data[0] = rtx_message.data[0];
+              req->data[1] = rtx_message.data[1];
+              req->data[2] = rtx_message.data[2];
+              req->data[3] = rtx_message.data[3];
+              req->data[4] = rtx_message.data[4];
+              req->data[5] = rtx_message.data[5];
+              req->data[6] = rtx_message.data[6];
+              req->data[7] = rtx_message.data[7];
+
+  // indicate transmit
+  SET(LED1S);
+  delay(200);
+  RESET(LED1S);
+
+  // we will wait for the reply for 250ms
+  unsigned long timeout;
+  timeout = millis();
+
+  mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
+  mcp2515_send_message(&rtx_message);
+
+  // loop until we have what we want or timeout is reached
+  bool MSG_RCV = false;
+  while (!MSG_RCV)
+  {
+    if (mcp2515_check_message())
+    {
+      if (mcp2515_get_message(&rtx_message))
+      {
+        if (rtx_message.id == 0x7e8) // anything else would be a surprise anyway, see filters in setup()
+        {
+          // indicate receive
+          SET(LED2S);
+          delay(200);
+          RESET(LED2S);
+          // check CAN payload
+          if ( rtx_message.data[0] == 0x02 ) // we expect two bytes as an answer (SSM)
+          {
+            if ( rtx_message.data[1] == 0xE8 ) // answer should start with E8 (SSM)
+            {
+              // we have what seems to be a valid answer, return in
+              *answer = rtx_message.data[2];
+              msg->id = rtx_message.id;
+              msg->header.length = rtx_message.header.length;
+              msg->data[0] = rtx_message.data[0];
+              msg->data[1] = rtx_message.data[1];
+              msg->data[2] = rtx_message.data[2];
+              msg->data[3] = rtx_message.data[3];
+              msg->data[4] = rtx_message.data[4];
+              msg->data[5] = rtx_message.data[5];
+              msg->data[6] = rtx_message.data[6];
+              msg->data[7] = rtx_message.data[7];
+              return true;
+            }
+            else
+            {
+              IO_U.println(rtx_message.data[1], HEX);
+            }
+          }
+          else
+          {
+            IO_U.println(rtx_message.data[0], HEX);
+          }
+        }
+        MSG_RCV = true; // we received our answer anyway, although might be erroneous
+      }
+      else MSG_RCV = false; // continue waiting for a message
+    }
+  }
+  if ((millis() > timeout + 250) && !MSG_RCV) // timeout after 250ms
+  {
+    // indicate error
+    SET(LED1S);
+    SET(LED2S);
+    delay(200);
+    RESET(LED1S);
+    RESET(LED2S);
+    MSG_RCV = true;
+  }
+
+  // return 'null value'
+  return false;
 }
