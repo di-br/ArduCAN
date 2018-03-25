@@ -235,17 +235,17 @@ void loop() {
     IO_U.println("Trying to check active DPF regen");
     // DPF regen active: address 0x0001CE  // 00 64 is the light switch (4th bit?), so we can actually change it for testing
     // send 0x7e0 : 05 A8 00 00 01 CE 00 00
-    if ( read_address(0x0064, &byte1) )
+    if ( read_address(0x01CE, &byte1) )
     {
       IO_U.print("answer received: ");
       IO_U.println(byte1, HEX);
       if ( (byte1 & (1 << 3)) != 0 ) // we look for 0000 1000 or 0000 0000
       {                              //                  \_ the 4th bit
-        IO_U.println("Light on");
+        IO_U.println("DPF regen in progress");
       }
       else
       {
-        IO_U.println("Light off");
+        IO_U.println("DPF regen not in progress");
       }
     }
 

@@ -34,7 +34,7 @@ This sketch is built starting from SparkFun's examples on how to use their shiel
 
 1. Log data on high-speed bus (under steering column) to uSD. This *does work*, but seems to *loose* a lot of *frames*. I guess the sketch needs to speed up.
 2. No Arduino example seems to be complete without a form of blinken lights. So here we go: flash the two LEDs when you break or disengage the clutch. This *works*, but is rather useless.
-3. Query some simple stats for the DPF and either indicate via LED or log to uSD. This *works partially*. Indicating status via LED is still missing, querying the DPF stats is done simple minded and also seems to miss one of the answers. The general idea is there.
+3. Query some simple stats for the DPF and indicate via LED and log to uSD. This *works partially*. Indicating status via LED is still missing (currently just blinks LED1 for a request sent, LED2 for an answer received), querying the DPF stats is done simple minded and seems to work. The general idea is there, more to come.
 
 **AnyLog**
 
