@@ -250,7 +250,7 @@ uint8_t mcp2515_init(uint8_t speed)
     return false;
   }
 
-  // deaktivate the RXnBF Pins (High Impedance State)
+  // deactivate the RXnBF Pins (High Impedance State)
   mcp2515_write_register(BFPCTRL, 0);
 
   // set TXnRTS as inputs

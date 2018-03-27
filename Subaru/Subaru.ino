@@ -230,7 +230,59 @@ void loop() {
       else IO_U.println("Some error with 2nd query...");
     }
     else IO_U.println("Some error with 1st query...");
+    delay(250);
 
+    // Get milage since injector replacement
+    //    The idea here is that we can guess the milage from that if we know the
+    //    replacement milage. So check odometer and add an offset to obtain current ODO reading
+    IO_U.println("Guessing odometer reading");
+    if ( read_address(0x0205, &byte1) )
+    {
+      IO_U.println("1st answer received");
+      if ( read_address(0x0204, &byte2) )
+      {
+        IO_U.println("2nd answer received");
+        IO_U.print(byte1 * 256 + byte2 + 0); // 0 being the current offset
+        IO_U.println("km");
+      }
+      else IO_U.println("Some error with 2nd query...");
+    }
+    else IO_U.println("Some error with 1st query...");
+    delay(250);
+
+    // Now get ash and soot ratios
+    IO_U.println("Reading ash and soot ratios");
+    if ( read_address(0x0275, &byte1) )
+    {
+      IO_U.print("Ash ratio ");
+      IO_U.print(byte1);
+      IO_U.println("%");
+    }
+    else IO_U.println("Some error with query...");
+    if ( read_address(0x027B, &byte1) )
+    {
+      IO_U.print("Soot accumulation ratio ");
+      IO_U.print(byte1);
+      IO_U.println("%");
+    }
+    else IO_U.println("Some error with query...");
+    delay(250);
+
+    // Get running distance since last regen
+    IO_U.println("Getting running distance since last regen");
+    if ( read_address(0x029C, &byte1) )
+    {
+      IO_U.println("1st answer received");
+      if ( read_address(0x029B, &byte2) )
+      {
+        IO_U.println("2nd answer received");
+        IO_U.print("Running distance since last regen: ");
+        IO_U.println(byte1 * 256 + byte2);
+      }
+      else IO_U.println("Some error with 2nd query...");
+    }
+    else IO_U.println("Some error with 1st query...");
+    delay(250);
 
     IO_U.println("Trying to check active DPF regen");
     // DPF regen active: address 0x0001CE  // 00 64 is the light switch (4th bit?), so we can actually change it for testing
@@ -240,7 +292,7 @@ void loop() {
       IO_U.print("answer received: ");
       IO_U.println(byte1, HEX);
       if ( (byte1 & (1 << 3)) != 0 ) // we look for 0000 1000 or 0000 0000
-      {                              //                  \_ the 4th bit
+      { //                                               \_ the 4th bit
         IO_U.println("DPF regen in progress");
       }
       else
@@ -283,16 +335,26 @@ bool read_address(uint16_t id, uint8_t *answer) {
   // indicate transmit
   SET(LED1S);
   delay(200);
+
+  mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
+  if (!mcp2515_send_message(&rtx_message))
+  {
+    // we could not find a free buffer (we have 3), so wait a second and retry
+    delay(1000);
+    if (!mcp2515_send_message(&rtx_message))
+    {
+      // we could again not find a free buffer, so do a soft reset and restart Arduino almost from scratch
+      delay(1000);
+      software_reset();
+    }
+  }
   RESET(LED1S);
 
   // we will wait for the reply for 250ms
   unsigned long timeout;
   timeout = millis();
 
-  mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
-  mcp2515_send_message(&rtx_message);
-
-  // loop until we have what we want or timeout is reached
+  // loop until we have an answer or timeout is reached
   bool MSG_RCV = false;
   while (!MSG_RCV)
   {
@@ -343,4 +405,10 @@ bool read_address(uint16_t id, uint8_t *answer) {
 
   // return 'null value'
   return false;
+}
+
+// Restarts program from beginning but does not reset the peripherals and registers
+void software_reset()
+{
+  asm volatile ("  jmp 0");
 }
