@@ -220,10 +220,12 @@ void loop() {
     uint8_t byte2;
     if ( read_address(0x029D, &byte1) )
     {
-      IO_U.println("1st answer received");
+      IO_U.print(byte1, HEX);
+      IO_U.println(" 1st answer received");
       if ( read_address(0x029E, &byte2) )
       {
-        IO_U.println("2nd answer received");
+        IO_U.print(byte2, HEX);
+        IO_U.println(" 2nd answer received");
         IO_U.print("DPF regen count: ");
         IO_U.println(byte1 * 256 + byte2);
       }
@@ -238,11 +240,30 @@ void loop() {
     IO_U.println("Guessing odometer reading");
     if ( read_address(0x0205, &byte1) )
     {
-      IO_U.println("1st answer received");
+      IO_U.print(byte1, HEX);
+      IO_U.println(" 1st answer received");
       if ( read_address(0x0204, &byte2) )
       {
-        IO_U.println("2nd answer received");
-        IO_U.print(byte1 * 256 + byte2 + 0); // 0 being the current offset
+        IO_U.print(byte2, HEX);
+        IO_U.println(" 2nd answer received");
+        IO_U.print((byte2 * 256 + byte1) * 5 + 100310); // 100310 being the current offset
+        IO_U.println("km");
+      }
+      else IO_U.println("Some error with 2nd query...");
+    }
+    else IO_U.println("Some error with 1st query...");
+    delay(250);
+
+    IO_U.println("Trying odometer reading");
+    if ( read_address(0x010E, &byte1) )
+    {
+      IO_U.print(byte1, HEX);
+      IO_U.println(" 1st answer received");
+      if ( read_address(0x010F, &byte2) )
+      {
+        IO_U.print(byte2, HEX);
+        IO_U.println(" 2nd answer received");
+        IO_U.print((byte1 * 256 + byte2) * 2);
         IO_U.println("km");
       }
       else IO_U.println("Some error with 2nd query...");
@@ -272,12 +293,14 @@ void loop() {
     IO_U.println("Getting running distance since last regen");
     if ( read_address(0x029C, &byte1) )
     {
-      IO_U.println("1st answer received");
+      IO_U.print(byte1, HEX);
+      IO_U.println(" 1st answer received");
       if ( read_address(0x029B, &byte2) )
       {
-        IO_U.println("2nd answer received");
+        IO_U.print(byte2, HEX);
+        IO_U.println(" 2nd answer received");
         IO_U.print("Running distance since last regen: ");
-        IO_U.println(byte1 * 256 + byte2);
+        IO_U.println(byte2 * 256 + byte1);
       }
       else IO_U.println("Some error with 2nd query...");
     }
