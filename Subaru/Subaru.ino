@@ -14,17 +14,22 @@
 
 //********************************switch functionality***********************//
 
-// have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
+// Have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
 #define _USD_IO
 
 // log CAN frames to uSD card?
 //#define _LOG
 
-// flash LEDs for break/clutch pedal
+// Flash LEDs for break/clutch pedal
+//   LED1 -> break pedal
+//   LED2 -> clutch pedal
 //#define _LBC
 
-// flash LEDs when DPF regen is active
+// Flash LEDs when DPF regen is active
 //     not implemented (yet?)
+//   LED1 will blink upon sending a frame
+//   LED2 will blink when receiving a frame
+//   LED1+LED2 will blink on an error
 #define _DPF
 
 //********************************headers************************************//
@@ -70,7 +75,7 @@ typedef union {
 } IDUnion;
 
 //********************************setup loop*********************************//
-// the setup loop will use serial output for now, to be disabled later
+// Fhe setup loop will use serial output for now, to be disabled later
 
 void setup() {
   // for debug use
@@ -102,9 +107,9 @@ void setup() {
   if (dataFile)
   {
     // log that we did initialise to separate different 'sessions'
-    dataFile.print("Init OK");
+    dataFile.print(F("Init OK"));
     dataFile.println();
-    // flush and close file
+    // Flush and close file
     dataFile.flush();
     dataFile.close();
   }
@@ -117,7 +122,7 @@ void setup() {
   // accept all frames
   mcp2515_init_filters(true);
 
-#ifdef _DPF
+#if defined(_DPF) && ! (defined(_LBC) || defined(_LOG))
   // accept no frames unless filtered
   mcp2515_init_filters(false);
   mcp2515_set_mask_or_filter(MASK0, 0x7F0);
@@ -134,7 +139,9 @@ void setup() {
 void loop() {
 
   tCAN message;
+#ifdef _LOG
   unsigned long timeStamp;
+#endif
 
 #ifdef _USD_IO
   // open uSD file to log data
@@ -147,33 +154,33 @@ void loop() {
     {
       if (mcp2515_get_message(&message))
       {
-#ifdef _LOG
+#ifdef _LOG // log any CAN frame encountered
         timeStamp = millis();
 
-        // output received data to either Serial or uSD
-        // mimic the candump format here for easier replay
-        // timestamp and 'interface'
-        IO_U.print("(");
+        // Output received data to either Serial or uSD.
+        //   Mimic the candump format here for easier replay.
+        //   Start with timestamp and 'interface'
+        IO_U.print(F("("));
         IO_U.print(timeStamp);
         IO_U.print(F(") arcan0 "));
         // CAN id
-        if (message.id < 0x100) IO_U.print("0");
-        if (message.id < 0x10)  IO_U.print("0");
+        if (message.id < 0x100) IO_U.print(F("0"));
+        if (message.id < 0x10)  IO_U.print(F("0"));
         IO_U.print(message.id, HEX);
-        IO_U.print("#");
+        IO_U.print(F("#"));
         // CAN payload
         for (int i = 0; i < message.header.length; i++)
         {
-          if (message.data[i] < 0x10) IO_U.print("0");
+          if (message.data[i] < 0x10) IO_U.print(F("0"));
           IO_U.print(message.data[i], HEX);
-          IO_U.print(" ");
+          IO_U.print(F(" "));
         }
         // CRLF and flush
-        IO_U.println("");
+        IO_U.println(F(""));
         IO_U.flush();
 #endif // _LOG
 
-#ifdef _LBC
+#ifdef _LBC // Flash LED for break/clutch pedal
         // inspect CAN frame 0x411
         if (message.id == 0x411)
         {
@@ -181,18 +188,18 @@ void loop() {
           if (message.data[6] & 0x1 << 4)
           {
             SET(LED1S);
-            //IO_U.println("BREAK");
+            //IO_U.println(F("BREAK"));
           }
           else RESET(LED1S);
         }
         // inspect CAN frame 0x600
         if (message.id == 0x600)
         {
-          // check for clutch switch
+          // Check for clutch switch
           if (message.data[6] & 0x1 << 2)
           {
             SET(LED2S);
-            //IO_U.println("CLUTCH");
+            //IO_U.println(F("CLUTCH"));
           }
           else RESET(LED2S);
         }
@@ -200,21 +207,25 @@ void loop() {
       }
     }
 
-#ifdef _DPF
+#ifdef _DPF // check DPF related stats
     // Hmm... initially I thought DPF regen would be announced in a CAN frame somewhere.
     // This is not the case. So we have to query the ECU if we want to indicate this.
     // To add some fun to this: we need ISO 15765-4 for this...
 
-    // DPF regen count: addresses 0x00029E + 0x00029D
-    // send 0x7e0 : 10 08 A8 00 00 02 9E 00             this would be an initial frame (10)
-    //                                                  of a multiframe message
-    // receive 0x7e8 : 30 00 00 00 00 00 00 00          where we wait for a signal to go on
-    //                                                  if we see something like 31 ...
-    //                                                  or 32 ... we are asked to wait or abort
-    // send 0x7e0 : 21 02 9D 00 00 00 00 00             this is a follow up frame (21)
-    // receive 0x7e8 ...
-    IO_U.println("Trying to receive DPF regen count");
-    // the single frame way (msg.length < 9), rather clumsy
+    // A multi-address request would need a multiframe message:
+    //   DPF regen count: addresses 0x00029E + 0x00029D
+    //   send 0x7e0 : 10 08 A8 00 00 02 9E 00             This would be an initial frame (10)
+    //                                                    of a multiframe message/
+    //   receive 0x7e8 : 30 00 00 00 00 00 00 00          We then wait for a signal to go on.
+    //                                                    If instead we see something like 31 ...
+    //                                                    or 32 ... we are asked to wait or abort.
+    //   send 0x7e0 : 21 02 9D 00 00 00 00 00             This is a follow up frame (21)
+    //   receive 0x7e8 ...
+    //
+    // A single address request is easier since it's shorter, so...
+    //
+    IO_U.println(F("Trying to receive DPF regen count"));
+    // The single frame way (msg.length < 9), rather clumsy
 
     uint8_t byte1;
     uint8_t byte2;
@@ -246,7 +257,7 @@ void loop() {
       {
         IO_U.print(byte2, HEX);
         IO_U.println(F(" 2nd answer received"));
-        IO_U.print((byte2 * 256 + byte1) * 5 + 100310); // 100310 being the current offset
+        IO_U.print((byte2 * 256 + byte1) * 5 + 229060); // 229060 being the offset after injector replacement
         IO_U.println(F("km"));
       }
       else IO_U.println(F("Some error with 2nd query..."));
@@ -271,7 +282,7 @@ void loop() {
     else IO_U.println(F("Some error with 1st query..."));
     delay(250);
 
-    // Now get ash and soot ratios
+    // now get ash and soot ratios
     IO_U.println(F("Reading ash and soot ratios"));
     if ( read_address(0x0275, &byte1) )
     {
@@ -289,7 +300,7 @@ void loop() {
     else IO_U.println(F("Some error with query..."));
     delay(250);
 
-    // Get running distance since last regen
+    // get running distance since last regen
     IO_U.println(F("Getting running distance since last regen"));
     if ( read_address(0x029C, &byte1) )
     {
@@ -308,35 +319,40 @@ void loop() {
     delay(250);
 
     IO_U.println(F("Trying to check active DPF regen"));
-    // DPF regen active: address 0x0001CE  // 00 64 is the light switch (4th bit?), so we can actually change it for testing
+    // DPF regen active: address 0x0001CE
+    //                           0x000064 is the light switch (4th bit?),
+    //                                    so we can actually change it for testing
     // send 0x7e0 : 05 A8 00 00 01 CE 00 00
     if ( read_address(0x01CE, &byte1) )
     {
       IO_U.print(F("answer received: "));
       IO_U.println(byte1, HEX);
-      if ( (byte1 & (1 << 3)) != 0 ) // we look for 0000 1000 or 0000 0000
+      if ( (byte1 & (1 << 3)) != 0 ) // We look for 0000 1000 or 0000 0000
       { //                                               \_ the 4th bit
         IO_U.println(F("DPF regen in progress"));
+        // Flash LEDs for 5 secs
+        indicate(5);
       }
       else
       {
         IO_U.println(F("DPF regen not in progress"));
+        // Wait for 5 secs
+        delay(5000);
       }
     }
 
-    delay(5000);
 #endif // _DPF
 
 #ifdef _USD_IO
-    // flush and close file
+    // Flush and close file
     dataFile.flush();
     dataFile.close();
   } // if(dataFile)
 #endif // _USD_IO
 }
 
-// query a single address from the ECU and return answer
-// this will do single frame queries and try to gracefully timeout
+// Query a single address from the ECU and return answer.
+// This will do single frame queries and try to gracefully timeout.
 bool read_address(uint16_t id, uint8_t *answer) {
 
   IDUnion tmpid;
@@ -345,7 +361,7 @@ bool read_address(uint16_t id, uint8_t *answer) {
   tmpid.id = id;
   rtx_message.id = 0x7e0;
   rtx_message.header.rtr = 0;
-  rtx_message.header.length = 8; // always needs to 8 bytes (SSM)
+  rtx_message.header.length = 8; // always needs to be 8 bytes (SSM)
   rtx_message.data[0] = 0x05;
   rtx_message.data[1] = 0xA8;
   rtx_message.data[2] = 0x00;
@@ -355,18 +371,18 @@ bool read_address(uint16_t id, uint8_t *answer) {
   rtx_message.data[6] = 0x00;
   rtx_message.data[7] = 0x00;
 
-  // indicate transmit
+  // Indicate transmit
   SET(LED1S);
   delay(200);
 
   mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
   if (!mcp2515_send_message(&rtx_message))
   {
-    // we could not find a free buffer (we have 3), so wait a second and retry
+    // We could not find a free buffer (we have 3), so wait a second and retry
     delay(1000);
     if (!mcp2515_send_message(&rtx_message))
     {
-      // we could again not find a free buffer, assume something went badly
+      // We could again not find a free buffer, assume something went wrong
       // so do a soft reset and restart Arduino almost from scratch
       delay(1000);
       software_reset();
@@ -374,11 +390,11 @@ bool read_address(uint16_t id, uint8_t *answer) {
   }
   RESET(LED1S);
 
-  // we will wait for the reply for 250ms
+  // we will wait for the reply for 250ms.
   unsigned long timeout;
   timeout = millis();
 
-  // loop until we have an answer or timeout is reached
+  // loop until we have an answer or timeout is reached.
   bool MSG_RCV = false;
   while (!MSG_RCV && (millis() < timeout + 250) )
   {
@@ -416,17 +432,31 @@ bool read_address(uint16_t id, uint8_t *answer) {
       else MSG_RCV = false; // continue waiting for a message
     }
   }
-  // indicate error since we did not return a valid answer
+  // Indicate error since we did not return a valid answer
   {
     SET(LED1S);
     SET(LED2S);
-    delay(200);
+    delay(250);
     RESET(LED1S);
     RESET(LED2S);
   }
 
   // return 'null value'
   return false;
+}
+
+// Flash LED1 and LED2 in turn to indicate something
+void indicate(int num)
+{
+  for (int c = 0; c < num; c++)
+  {
+    SET(LED1S);
+    delay(500);
+    RESET(LED1S);
+    SET(LED2S);
+    delay(500);
+    RESET(LED2S);
+  }
 }
 
 // Restarts program from beginning but does not reset the peripherals and registers
