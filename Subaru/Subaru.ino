@@ -366,7 +366,8 @@ bool read_address(uint16_t id, uint8_t *answer) {
     delay(1000);
     if (!mcp2515_send_message(&rtx_message))
     {
-      // we could again not find a free buffer, so do a soft reset and restart Arduino almost from scratch
+      // we could again not find a free buffer, assume something went badly
+      // so do a soft reset and restart Arduino almost from scratch
       delay(1000);
       software_reset();
     }
@@ -379,7 +380,7 @@ bool read_address(uint16_t id, uint8_t *answer) {
 
   // loop until we have an answer or timeout is reached
   bool MSG_RCV = false;
-  while (!MSG_RCV)
+  while (!MSG_RCV && (millis() < timeout + 250) )
   {
     if (mcp2515_check_message())
     {
@@ -415,15 +416,13 @@ bool read_address(uint16_t id, uint8_t *answer) {
       else MSG_RCV = false; // continue waiting for a message
     }
   }
-  if ((millis() > timeout + 250) && !MSG_RCV) // timeout after 250ms
+  // indicate error since we did not return a valid answer
   {
-    // indicate error
     SET(LED1S);
     SET(LED2S);
     delay(200);
     RESET(LED1S);
     RESET(LED2S);
-    MSG_RCV = true;
   }
 
   // return 'null value'
