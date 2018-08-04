@@ -79,20 +79,20 @@ void setup() {
 
   // initialise MCP2515 CAN controller at the specified speed
   if (mcp2515_init(CANSPEED_500))
-    Serial.println("CAN Init: ok");
+    Serial.println(F("CAN Init: ok"));
   else
-    Serial.println("CAN Init: failed");
+    Serial.println(F("CAN Init: failed"));
   delay(500);
 
 #ifdef _USD_IO
   // check if uSD card initialised
   if (!SD.begin(chipSelect))
   {
-    Serial.println("uSD card: failed to initialise or not present");
+    Serial.println(F("uSD card: failed to initialise or not present"));
     return;
   }
   else {
-    Serial.println("uSD card: initialised");
+    Serial.println(F("uSD card: initialised"));
     delay(50);
   }
   delay(500);
@@ -155,7 +155,7 @@ void loop() {
         // timestamp and 'interface'
         IO_U.print("(");
         IO_U.print(timeStamp);
-        IO_U.print(") arcan0 ");
+        IO_U.print(F(") arcan0 "));
         // CAN id
         if (message.id < 0x100) IO_U.print("0");
         if (message.id < 0x10)  IO_U.print("0");
@@ -221,106 +221,106 @@ void loop() {
     if ( read_address(0x029D, &byte1) )
     {
       IO_U.print(byte1, HEX);
-      IO_U.println(" 1st answer received");
+      IO_U.println(F(" 1st answer received"));
       if ( read_address(0x029E, &byte2) )
       {
         IO_U.print(byte2, HEX);
-        IO_U.println(" 2nd answer received");
-        IO_U.print("DPF regen count: ");
+        IO_U.println(F(" 2nd answer received"));
+        IO_U.print(F("DPF regen count: "));
         IO_U.println(byte1 * 256 + byte2);
       }
-      else IO_U.println("Some error with 2nd query...");
+      else IO_U.println(F("Some error with 2nd query..."));
     }
-    else IO_U.println("Some error with 1st query...");
+    else IO_U.println(F("Some error with 1st query..."));
     delay(250);
 
     // Get milage since injector replacement
     //    The idea here is that we can guess the milage from that if we know the
     //    replacement milage. So check odometer and add an offset to obtain current ODO reading
-    IO_U.println("Guessing odometer reading");
+    IO_U.println(F("Guessing odometer reading"));
     if ( read_address(0x0205, &byte1) )
     {
       IO_U.print(byte1, HEX);
-      IO_U.println(" 1st answer received");
+      IO_U.println(F(" 1st answer received"));
       if ( read_address(0x0204, &byte2) )
       {
         IO_U.print(byte2, HEX);
-        IO_U.println(" 2nd answer received");
+        IO_U.println(F(" 2nd answer received"));
         IO_U.print((byte2 * 256 + byte1) * 5 + 100310); // 100310 being the current offset
-        IO_U.println("km");
+        IO_U.println(F("km"));
       }
-      else IO_U.println("Some error with 2nd query...");
+      else IO_U.println(F("Some error with 2nd query..."));
     }
-    else IO_U.println("Some error with 1st query...");
+    else IO_U.println(F("Some error with 1st query..."));
     delay(250);
 
-    IO_U.println("Trying odometer reading");
+    IO_U.println(F("Trying odometer reading"));
     if ( read_address(0x010E, &byte1) )
     {
       IO_U.print(byte1, HEX);
-      IO_U.println(" 1st answer received");
+      IO_U.println(F(" 1st answer received"));
       if ( read_address(0x010F, &byte2) )
       {
         IO_U.print(byte2, HEX);
-        IO_U.println(" 2nd answer received");
+        IO_U.println(F(" 2nd answer received"));
         IO_U.print((byte1 * 256 + byte2) * 2);
-        IO_U.println("km");
+        IO_U.println(F("km"));
       }
-      else IO_U.println("Some error with 2nd query...");
+      else IO_U.println(F("Some error with 2nd query..."));
     }
-    else IO_U.println("Some error with 1st query...");
+    else IO_U.println(F("Some error with 1st query..."));
     delay(250);
 
     // Now get ash and soot ratios
-    IO_U.println("Reading ash and soot ratios");
+    IO_U.println(F("Reading ash and soot ratios"));
     if ( read_address(0x0275, &byte1) )
     {
-      IO_U.print("Ash ratio ");
+      IO_U.print(F("Ash ratio "));
       IO_U.print(byte1);
-      IO_U.println("%");
+      IO_U.println(F("%"));
     }
-    else IO_U.println("Some error with query...");
+    else IO_U.println(F("Some error with query..."));
     if ( read_address(0x027B, &byte1) )
     {
-      IO_U.print("Soot accumulation ratio ");
+      IO_U.print(F("Soot accumulation ratio "));
       IO_U.print(byte1);
-      IO_U.println("%");
+      IO_U.println(F("%"));
     }
-    else IO_U.println("Some error with query...");
+    else IO_U.println(F("Some error with query..."));
     delay(250);
 
     // Get running distance since last regen
-    IO_U.println("Getting running distance since last regen");
+    IO_U.println(F("Getting running distance since last regen"));
     if ( read_address(0x029C, &byte1) )
     {
       IO_U.print(byte1, HEX);
-      IO_U.println(" 1st answer received");
+      IO_U.println(F(" 1st answer received"));
       if ( read_address(0x029B, &byte2) )
       {
         IO_U.print(byte2, HEX);
-        IO_U.println(" 2nd answer received");
-        IO_U.print("Running distance since last regen: ");
+        IO_U.println(F(" 2nd answer received"));
+        IO_U.print(F("Running distance since last regen: "));
         IO_U.println(byte2 * 256 + byte1);
       }
-      else IO_U.println("Some error with 2nd query...");
+      else IO_U.println(F("Some error with 2nd query..."));
     }
-    else IO_U.println("Some error with 1st query...");
+    else IO_U.println(F("Some error with 1st query..."));
     delay(250);
 
-    IO_U.println("Trying to check active DPF regen");
+    IO_U.println(F("Trying to check active DPF regen"));
     // DPF regen active: address 0x0001CE  // 00 64 is the light switch (4th bit?), so we can actually change it for testing
     // send 0x7e0 : 05 A8 00 00 01 CE 00 00
     if ( read_address(0x01CE, &byte1) )
     {
-      IO_U.print("answer received: ");
+      IO_U.print(F("answer received: "));
       IO_U.println(byte1, HEX);
       if ( (byte1 & (1 << 3)) != 0 ) // we look for 0000 1000 or 0000 0000
       { //                                               \_ the 4th bit
-        IO_U.println("DPF regen in progress");
+        IO_U.println(F("DPF regen in progress"));
       }
       else
       {
-        IO_U.println("DPF regen not in progress");
+        IO_U.println(F("DPF regen not in progress"));
       }
     }
 
