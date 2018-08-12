@@ -265,23 +265,6 @@ void loop() {
     else IO_U.println(F("Some error with 1st query..."));
     delay(250);
 
-    IO_U.println(F("Trying odometer reading"));
-    if ( read_address(0x010E, &byte1) )
-    {
-      IO_U.print(byte1, HEX);
-      IO_U.println(F(" 1st answer received"));
-      if ( read_address(0x010F, &byte2) )
-      {
-        IO_U.print(byte2, HEX);
-        IO_U.println(F(" 2nd answer received"));
-        IO_U.print((byte1 * 256 + byte2) * 2);
-        IO_U.println(F("km"));
-      }
-      else IO_U.println(F("Some error with 2nd query..."));
-    }
-    else IO_U.println(F("Some error with 1st query..."));
-    delay(250);
-
     // now get ash and soot ratios
     IO_U.println(F("Reading ash and soot ratios"));
     if ( read_address(0x0275, &byte1) )
