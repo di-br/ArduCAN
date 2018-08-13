@@ -215,17 +215,17 @@ void loop() {
     // A multi-address request would need a multiframe message:
     //   DPF regen count: addresses 0x00029E + 0x00029D
     //   send 0x7e0 : 10 08 A8 00 00 02 9E 00             This would be an initial frame (10)
-    //                                                    of a multiframe message/
+    //                                                    of a multiframe message w/ 8 bytes payload (2nd byte)
     //   receive 0x7e8 : 30 00 00 00 00 00 00 00          We then wait for a signal to go on.
     //                                                    If instead we see something like 31 ...
     //                                                    or 32 ... we are asked to wait or abort.
-    //   send 0x7e0 : 21 02 9D 00 00 00 00 00             This is a follow up frame (21)
+    //   send 0x7e0 : 21 02 9D 00 00 00 00 00             This is a follow up frame (21) with only payload
     //   receive 0x7e8 ...
     //
     // A single address request is easier since it's shorter, so...
     //
     IO_U.println(F("Trying to receive DPF regen count"));
-    // The single frame way (msg.length < 9), rather clumsy
+    // The single frame way (msg.length < 8), rather clumsy
 
     uint8_t byte1;
     uint8_t byte2;
@@ -344,14 +344,14 @@ bool read_address(uint16_t id, uint8_t *answer) {
   tmpid.id = id;
   rtx_message.id = 0x7e0;
   rtx_message.header.rtr = 0;
-  rtx_message.header.length = 8; // always needs to be 8 bytes (SSM)
-  rtx_message.data[0] = 0x05;
-  rtx_message.data[1] = 0xA8;
-  rtx_message.data[2] = 0x00;
-  rtx_message.data[3] = 0x00;
-  rtx_message.data[4] = tmpid.id_hi;
-  rtx_message.data[5] = tmpid.id_lo;
-  rtx_message.data[6] = 0x00;
+  rtx_message.header.length = 8;     // CAN message always needs to be 8 bytes (SSM), so pad with 0's till the end
+  rtx_message.data[0] = 0x05;        // 5 bytes actual payload (the first 4 bits make up 0 for a single frame)
+  rtx_message.data[1] = 0xA8;        // A8 = request mem addr
+  rtx_message.data[2] = 0x00;        // required to be 0x00
+  rtx_message.data[3] = 0x00;        // 1st byte of addr
+  rtx_message.data[4] = tmpid.id_hi; // 2nd byte of addr
+  rtx_message.data[5] = tmpid.id_lo; // 3rd byte of addr
+  rtx_message.data[6] = 0x00;        // 0x00 to pad to 8 bytes
   rtx_message.data[7] = 0x00;
 
   // Indicate transmit
