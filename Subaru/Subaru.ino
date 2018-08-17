@@ -326,33 +326,33 @@ void loop() {
       }
     }
 
-    /*
-        uint8_t longq[16];
-        longq[0] = 0x11;
-        longq[1] = 0x22;
-        longq[2] = 0x33;
-        longq[3] = 0x44;
-        longq[4] = 0x55;
-        longq[5] = 0x66;
-        longq[6] = 0x77;
-        longq[7] = 0x88;
-        longq[8] = 0x99;
-        longq[9] = 0xDE;
-        longq[10] = 0xAD;
-        longq[11] = 0xBE;
-        longq[12] = 0xEF;
-        longq[13] = 0x12;
-        longq[14] = 0x13;
-        longq[15] = 0x14;
+    // test ISO-TP send w/ bogus data (remember to replay locally, not on the car...)
+    uint8_t longq[16];
+    longq[0] = 0x11;
+    longq[1] = 0x22;
+    longq[2] = 0x33;
+    longq[3] = 0x44;
+    longq[4] = 0x55;
+    longq[5] = 0x66;
+    longq[6] = 0x77;
+    longq[7] = 0x88;
+    longq[8] = 0x99;
+    longq[9] = 0xDE;
+    longq[10] = 0xAD;
+    longq[11] = 0xBE;
+    longq[12] = 0xEF;
+    longq[13] = 0x12;
+    longq[14] = 0x13;
+    longq[15] = 0x14;
 
-        if(iso_tp_send(longq, 2))
-        {
-          if(iso_tp_send(longq, 8))
-          {
-            IO_U.println(F("success"));
-          }
-        }
-    */
+    if (iso_tp_send(longq, 2))
+    {
+      if (iso_tp_send(longq, 8))
+      {
+        IO_U.println(F("success"));
+      }
+    }
+    iso_tp_send(longq, 16);
 
 #endif // _DPF
 
@@ -458,11 +458,11 @@ bool read_address(uint16_t id, uint8_t *answer) {
   return false;
 }
 
-/*
-  // send an ISO-TP formatted frame to the ECU
-  // we do not consider any timeouts or wait periods here
-  bool iso_tp_send(uint8_t *message, uint8_t length)
-  {
+
+// send an ISO-TP formatted frame to the ECU
+// we do not consider any timeouts or wait periods here
+bool iso_tp_send(uint8_t *message, uint8_t length)
+{
   tCAN rtx_message; // CAN frame buffer
   uint8_t count;    // count the bytes we've sent already
 
@@ -584,8 +584,8 @@ bool read_address(uint16_t id, uint8_t *answer) {
     RESET(LED1S);
     return true;
   }
-  }
-*/
+}
+
 
 // Flash LED1 and LED2 in turn to indicate something
 void indicate(uint8_t num)
