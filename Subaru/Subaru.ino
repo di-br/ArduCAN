@@ -122,7 +122,7 @@ void setup() {
   // accept all frames
   mcp2515_init_filters(true);
 
-#if defined(_DPF) && ! (defined(_LBC) || defined(_LOG))
+#if (defined(_DPF) && ! (defined(_LBC) || defined(_LOG)))
   // accept no frames unless filtered
   mcp2515_init_filters(false);
   mcp2515_set_mask_or_filter(MASK0, 0x7F0);
@@ -150,7 +150,7 @@ void loop() {
   {
 #endif // _USD_IO
 
-#if defined(_LOG) || defined (_LBC)
+#if (defined(_LOG) || defined (_LBC))
     if (mcp2515_check_message())
     {
       if (mcp2515_get_message(&message))
