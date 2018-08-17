@@ -10,6 +10,13 @@
    https://github.com/sparkfun/SparkFun_CAN-Bus_Arduino_Library
 
    Distributed as-is; no warranty is given.
+
+
+   SSM protocol and CAN ID's taken from https://subdiesel.wordpress.com/
+
+   All of the CAN communication via MCP2515 is done w/o using interrupts. This
+   means timing may be a crucial factor for the code to work.
+
  ****************************************************************************/
 
 //********************************switch functionality***********************//
@@ -326,33 +333,53 @@ void loop() {
       }
     }
 
-    // test ISO-TP send w/ bogus data (remember to replay locally, not on the car...)
-    uint8_t longq[16];
-    longq[0] = 0x11;
-    longq[1] = 0x22;
-    longq[2] = 0x33;
-    longq[3] = 0x44;
-    longq[4] = 0x55;
-    longq[5] = 0x66;
-    longq[6] = 0x77;
-    longq[7] = 0x88;
-    longq[8] = 0x99;
-    longq[9] = 0xDE;
-    longq[10] = 0xAD;
-    longq[11] = 0xBE;
-    longq[12] = 0xEF;
-    longq[13] = 0x12;
-    longq[14] = 0x13;
-    longq[15] = 0x14;
+    /*
+        // test ISO-TP send/recv w/ data for ECU
+        uint8_t longq[16];
+        longq[0] = 0x05; // 5 bytes will follow
+        longq[1] = 0xA8; // SSM read mem address
+        longq[2] = 0x00; // required
+        longq[3] = 0x00;
+        longq[4] = 0x02;
+        longq[5] = 0x75; // address 0x000275
 
-    if (iso_tp_send(longq, 2))
-    {
-      if (iso_tp_send(longq, 8))
-      {
-        IO_U.println(F("success"));
-      }
-    }
-    iso_tp_send(longq, 16);
+        if (iso_tp_send(longq, 6))
+        {
+          uint8_t bts;
+          bts = 16;
+          if (iso_tp_recv(longq, bts))
+          {
+            IO_U.println(F("successfully read ISO-TP frame"));
+            IO_U.println(F("received "),bts,F("bytes"));
+            IO_U.println(longq[0], HEX);
+            IO_U.println(longq[1], HEX);
+            IO_U.println(longq[2], HEX);
+          }
+        }
+        longq[0] = 0x08; // 8 bytes will follow
+        longq[1] = 0xA8; // SSM read mem address
+        longq[2] = 0x00; // required
+        longq[3] = 0x00;
+        longq[4] = 0x02;
+        longq[5] = 0x75; // address 0x000275 -> ash
+        longq[6] = 0x00;
+        longq[7] = 0x02;
+        longq[8] = 0x7B; // address 0x00027B -> soot
+
+        if (iso_tp_send(longq, 6))
+        {
+          uint8_t bts;
+          bts = 16;
+          if (iso_tp_recv(longq, bts))
+          {
+            IO_U.println(F("successfully read ISO-TP frame"));
+            IO_U.println(F("received "),bts,F("bytes"));
+            IO_U.println(longq[0], HEX);
+            IO_U.println(longq[1], HEX);
+            IO_U.println(longq[2], HEX);
+          }
+        }
+    */
 
 #endif // _DPF
 
@@ -586,6 +613,77 @@ bool iso_tp_send(uint8_t *message, uint8_t length)
   }
 }
 
+// receive an ISO-TP formatted frame from the ECU
+// data needs to be large enough to hold all received data...
+bool iso_tp_recv(uint8_t *data, uint8_t *length)
+{
+  tCAN rtx_message; // CAN frame buffer
+  uint8_t count;    // count the bytes we've received already
+
+  // we expect a message from the ECU, so wait/check for it
+  if (mcp2515_check_message())
+  {
+    if (mcp2515_get_message(&rtx_message))
+    {
+      if (rtx_message.id == 0x7e8) // anything else would be a surprise anyway, see filters in setup()
+      {
+        // indicate receive
+        SET(LED2S);
+        // check CAN payload to tell single- and multi-frame messages apart
+
+        // Up to 7 bytes returned from the ECU will be within a single-frame message.
+        // (We need 1 byte to indicate message type). The 7 bytes will have to include
+        // E8 to signal the answer to A8, so an actual payload of 6 bytes should be
+        // possible before we need multi-frame receives?
+        if ( rtx_message.data[0] == 0x10 ) // a multi-frame message
+        {
+          // send abort and implement later
+          rtx_message.id = 0x7e0;
+          rtx_message.header.rtr = 0;
+          rtx_message.header.length = 8;     // ISO-TP message w/ 3 bytes, SSM wants 8?
+          rtx_message.data[0] = 0x32;        // this should signal an abort?
+          rtx_message.data[1] = 0x00;        // 0x00 to pad to 8 bytes
+          rtx_message.data[2] = 0x00;
+          rtx_message.data[3] = 0x00;
+          rtx_message.data[4] = 0x00;
+          rtx_message.data[5] = 0x00;
+          rtx_message.data[6] = 0x00;
+          rtx_message.data[7] = 0x00;
+
+          // Indicate transmit
+          SET(LED1S);
+
+          mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
+          mcp2515_send_message(&rtx_message);
+
+          delay(200);
+          RESET(LED1S);
+          RESET(LED2S);
+          return false;
+
+        }
+        else // we have a single frame message (or something different alltogether)
+        {
+          // get number of bytes to expect
+          count = rtx_message.data[0] - 1; // -1 since we expect the E8
+          if ( count > length) return false; // make sure we have enough space
+          if (rtx_message.data[1] == 0xE8) // answer should start with E8 (SSM)
+          {
+            uint8_t i = 0;
+            for ( count; count > 0; count--)
+            {
+              data[i] = rtx_message.data[i + 2];
+              i++;
+            }
+            delay(200);
+            RESET(LED2S);
+            return true;
+          }
+        } // frame type
+      } // is correct message
+    } // get message
+  } // check msg
+}
 
 // Flash LED1 and LED2 in turn to indicate something
 void indicate(uint8_t num)
