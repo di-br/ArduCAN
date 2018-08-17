@@ -15,7 +15,7 @@
 //********************************switch functionality***********************//
 
 // Have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
-#define _USD_IO
+//#define _USD_IO
 
 // log CAN frames to uSD card?
 //#define _LOG
@@ -150,6 +150,7 @@ void loop() {
   {
 #endif // _USD_IO
 
+#if defined(_LOG) || defined (_LBC)
     if (mcp2515_check_message())
     {
       if (mcp2515_get_message(&message))
@@ -169,7 +170,7 @@ void loop() {
         IO_U.print(message.id, HEX);
         IO_U.print(F("#"));
         // CAN payload
-        for (int i = 0; i < message.header.length; i++)
+        for (uint8_t i = 0; i < message.header.length; i++)
         {
           if (message.data[i] < 0x10) IO_U.print(F("0"));
           IO_U.print(message.data[i], HEX);
@@ -206,16 +207,17 @@ void loop() {
 #endif // _LBC
       }
     }
+#endif
 
 #ifdef _DPF // check DPF related stats
     // Hmm... initially I thought DPF regen would be announced in a CAN frame somewhere.
     // This is not the case. So we have to query the ECU if we want to indicate this.
     // To add some fun to this: we need ISO 15765-4 for this...
 
-    // A multi-address request would need a multiframe message:
+    // A multi-address request would need a multi-frame message:
     //   DPF regen count: addresses 0x00029E + 0x00029D
     //   send 0x7e0 : 10 08 A8 00 00 02 9E 00             This would be an initial frame (10)
-    //                                                    of a multiframe message w/ 8 bytes payload (2nd byte)
+    //                                                    of a multi-frame message w/ 8 bytes payload (2nd byte)
     //   receive 0x7e8 : 30 00 00 00 00 00 00 00          We then wait for a signal to go on.
     //                                                    If instead we see something like 31 ...
     //                                                    or 32 ... we are asked to wait or abort.
@@ -225,7 +227,7 @@ void loop() {
     // A single address request is easier since it's shorter, so...
     //
     IO_U.println(F("Trying to receive DPF regen count"));
-    // The single frame way (msg.length < 8), rather clumsy
+    // The single-frame way (msg.length < 8), rather clumsy
 
     uint8_t byte1;
     uint8_t byte2;
@@ -324,6 +326,34 @@ void loop() {
       }
     }
 
+    /*
+        uint8_t longq[16];
+        longq[0] = 0x11;
+        longq[1] = 0x22;
+        longq[2] = 0x33;
+        longq[3] = 0x44;
+        longq[4] = 0x55;
+        longq[5] = 0x66;
+        longq[6] = 0x77;
+        longq[7] = 0x88;
+        longq[8] = 0x99;
+        longq[9] = 0xDE;
+        longq[10] = 0xAD;
+        longq[11] = 0xBE;
+        longq[12] = 0xEF;
+        longq[13] = 0x12;
+        longq[14] = 0x13;
+        longq[15] = 0x14;
+
+        if(iso_tp_send(longq, 2))
+        {
+          if(iso_tp_send(longq, 8))
+          {
+            IO_U.println(F("success"));
+          }
+        }
+    */
+
 #endif // _DPF
 
 #ifdef _USD_IO
@@ -335,7 +365,7 @@ void loop() {
 }
 
 // Query a single address from the ECU and return answer.
-// This will do single frame queries and try to gracefully timeout.
+// This will do single-frame queries and try to gracefully timeout.
 bool read_address(uint16_t id, uint8_t *answer) {
 
   IDUnion tmpid;
@@ -428,10 +458,139 @@ bool read_address(uint16_t id, uint8_t *answer) {
   return false;
 }
 
+/*
+  // send an ISO-TP formatted frame to the ECU
+  // we do not consider any timeouts or wait periods here
+  bool iso_tp_send(uint8_t *message, uint8_t length)
+  {
+  tCAN rtx_message; // CAN frame buffer
+  uint8_t count;    // count the bytes we've sent already
+
+  // single- or multi-frame?
+  if (length < 8)
+  {
+    // single-frame
+
+    // indicate transmit
+    SET(LED1S);
+    delay(200);
+
+    rtx_message.id = 0x7e0;                             // send to ECU
+    rtx_message.header.rtr = 0;
+    rtx_message.header.length = 8;                      // CAN message always needs to be 8 bytes (SSM), so pad with 0's till the end
+    rtx_message.data[0] = length;                       // number of bytes to follow (the first 4 bits make up 0 for a single frame)
+    for (count = 0; count < length; count++)
+    {
+      rtx_message.data[count + 1] = message[count];     // fill in message bytes
+    }
+    memset(&rtx_message.data[count + 1], 0, 7 - count); // pad rest of the frame w/ 0's
+
+    mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
+    if (!mcp2515_send_message(&rtx_message))
+    {
+      // We could not find a free buffer (we have 3), so wait a half a second then return
+      delay(500);
+      return false;
+    }
+    // switch LED off and return w/ success
+    RESET(LED1S);
+    return true;
+  }
+  else
+  {
+    // multi-frame
+
+    // indicate transmit
+    SET(LED1S);
+    delay(200);
+
+    rtx_message.id = 0x7e0;                         // send to ECU
+    rtx_message.header.rtr = 0;
+    rtx_message.header.length = 8;                  // CAN message always needs to be 8 bytes (SSM), so pad with 0's till the end
+    rtx_message.data[0] = 0x10;                     // first frame of multi-frame message
+    rtx_message.data[1] = length;                   // number of bytes to follow for all frames combined
+    for (count = 0; count < 6; count++)
+    {
+      rtx_message.data[count + 2] = message[count]; // fill in message bytes
+    } // no padding necessary...
+
+    mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
+    if (!mcp2515_send_message(&rtx_message))
+    {
+      // We could not find a free buffer (we have 3), so wait a half a second then return
+      delay(500);
+      return false;
+    }
+
+    // now wait for reply from ECU to know we can continue
+    bool MSG_RCV = false;
+    while (!MSG_RCV)
+    {
+      if (mcp2515_check_message())
+      {
+        if (mcp2515_get_message(&rtx_message))
+        {
+          if (rtx_message.id == 0x7e8) // anything else would be a surprise anyway, see filters in setup()
+          {
+            // indicate receive
+            SET(LED2S);
+            delay(200);
+            RESET(LED2S);
+            // check CAN payload
+            if ( rtx_message.data[0] == 0x30 ) // we expect a 'continue transmission frame', bail otherwise
+            {
+              if ( rtx_message.data[1] == 0x00 )
+              {
+                if ( rtx_message.data[2] == 0x00 )
+                {
+                  MSG_RCV = true;
+                }
+                else return false;
+              }
+              else return false;
+            }
+            else return false; // some other reply, so we're screwed
+          }
+        }
+      }
+    }
+
+    // got it, send remaining frames
+    for (uint8_t fcount = 0; fcount < ((length - 6) / 7 + ((length - 6) % 7 != 0)); fcount++)
+    {
+      rtx_message.id = 0x7e0;                  // send to ECU
+      rtx_message.header.rtr = 0;
+      rtx_message.header.length = 8;           // CAN message always needs to be 8 bytes (SSM), so pad with 0's till the end
+      rtx_message.data[0] = 0x20 + fcount + 1; // consecutive frames
+      rtx_message.data[1] = length;            // number of bytes to follow for all frames combined
+      uint8_t i = 1;
+      for (count; count < (length < 7 + fcount * 7 + 6 ? length : 7 + fcount * 7 + 6); count++)
+      {
+        rtx_message.data[i] = message[count];  // fill in message bytes
+        i++;
+      }
+      memset(&rtx_message.data[i], 0, 8 - i);  // pad rest of the frame w/ 0's
+
+      mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
+      if (!mcp2515_send_message(&rtx_message))
+      {
+        // We could not find a free buffer (we have 3), so wait a half a second then return
+        delay(500);
+        return false;
+      }
+    }
+
+    // switch LED off and return w/ success
+    RESET(LED1S);
+    return true;
+  }
+  }
+*/
+
 // Flash LED1 and LED2 in turn to indicate something
-void indicate(int num)
+void indicate(uint8_t num)
 {
-  for (int c = 0; c < num; c++)
+  for (uint8_t c = 0; c < num; c++)
   {
     SET(LED1S);
     delay(500);
