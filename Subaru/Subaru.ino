@@ -496,7 +496,7 @@ bool iso_tp_send(uint8_t *message, uint8_t len)
   uint8_t count;    // count the bytes we've sent already
 
   // single- or multi-frame?
-  if (len < 8)
+  if (len < 9)
   {
     // single-frame
 
@@ -507,13 +507,13 @@ bool iso_tp_send(uint8_t *message, uint8_t len)
     rtx_message.id = 0x7e0;                             // send to ECU
     rtx_message.header.rtr = 0;
     rtx_message.header.length = 8;                      // CAN message always needs to be 8 bytes (SSM), so pad with 0's till the end
+    memset(&rtx_message.data[0], 0, 8);                 // pad rest of the frame w/ 0's
     for (count = 0; count < len; count++)
     {
       rtx_message.data[count] = message[count];         // fill in message bytes
-                                                        // number of bytes to follow (the first 4 bits make up 0 for a single frame)
-                                                        // needs to be byte 0 from input message
+                                                        //   number of bytes to follow (the first 4 bits make up 0 for a single frame)
+                                                        //   needs to be byte 0 from input message
     }
-    memset(&rtx_message.data[count], 0, 8 - count); // pad rest of the frame w/ 0's
 
     mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
     if (!mcp2515_send_message(&rtx_message))
@@ -591,15 +591,14 @@ bool iso_tp_send(uint8_t *message, uint8_t len)
       rtx_message.id = 0x7e0;                  // send to ECU
       rtx_message.header.rtr = 0;
       rtx_message.header.length = 8;           // CAN message always needs to be 8 bytes (SSM), so pad with 0's till the end
+      memset(&rtx_message.data[0], 0, 8);      // pad rest of the frame w/ 0's
       rtx_message.data[0] = 0x20 + fcount + 1; // consecutive frames
-      rtx_message.data[1] = len;               // number of bytes to follow for all frames combined
       uint8_t i = 1;
       for (count; count < (len < 7 + fcount * 7 + 6 ? len : 7 + fcount * 7 + 6); count++)
       {
         rtx_message.data[i] = message[count];  // fill in message bytes
         i++;
       }
-      memset(&rtx_message.data[i], 0, 8 - i);  // pad rest of the frame w/ 0's
 
       mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
       if (!mcp2515_send_message(&rtx_message))
