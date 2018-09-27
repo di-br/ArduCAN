@@ -22,7 +22,7 @@
 //********************************switch functionality***********************//
 
 // Have 'I/O' to serial console (comment) or uSD (include _USD_IO)?
-//#define _USD_IO
+#define _USD_IO
 
 // log CAN frames to uSD card?
 //#define _LOG
@@ -333,53 +333,55 @@ void loop() {
       }
     }
 
-    /*
-        // test ISO-TP send/recv w/ data for ECU
-        uint8_t longq[16];
-        longq[0] = 0x05; // 5 bytes will follow
-        longq[1] = 0xA8; // SSM read mem address
-        longq[2] = 0x00; // required
-        longq[3] = 0x00;
-        longq[4] = 0x02;
-        longq[5] = 0x75; // address 0x000275
+    // test ISO-TP send/recv w/ data for ECU
+    uint8_t longq[16];
+    longq[0] = 0x05; // 5 bytes will follow
+    longq[1] = 0xA8; // SSM read mem address
+    longq[2] = 0x00; // required
+    longq[3] = 0x00;
+    longq[4] = 0x02;
+    longq[5] = 0x75; // address 0x000275
 
-        if (iso_tp_send(longq, 6))
-        {
-          uint8_t bts;
-          bts = 16;
-          if (iso_tp_recv(longq, bts))
-          {
-            IO_U.println(F("successfully read ISO-TP frame"));
-            IO_U.println(F("received "),bts,F("bytes"));
-            IO_U.println(longq[0], HEX);
-            IO_U.println(longq[1], HEX);
-            IO_U.println(longq[2], HEX);
-          }
-        }
-        longq[0] = 0x08; // 8 bytes will follow
-        longq[1] = 0xA8; // SSM read mem address
-        longq[2] = 0x00; // required
-        longq[3] = 0x00;
-        longq[4] = 0x02;
-        longq[5] = 0x75; // address 0x000275 -> ash
-        longq[6] = 0x00;
-        longq[7] = 0x02;
-        longq[8] = 0x7B; // address 0x00027B -> soot
+    if (iso_tp_send(longq, 6))
+    {
+      uint8_t bts;
+      bts = 16;
+      if (iso_tp_recv(longq, &bts))
+      {
+        IO_U.println(F("successfully read ISO-TP frame"));
+        IO_U.print(F("received "));
+        IO_U.print(bts);
+        IO_U.print(F("bytes"));
+        IO_U.println(longq[0], HEX);
+        IO_U.println(longq[1], HEX);
+        IO_U.println(longq[2], HEX);
+      }
+    }
+    longq[0] = 0x08; // 8 bytes will follow
+    longq[1] = 0xA8; // SSM read mem address
+    longq[2] = 0x00; // required
+    longq[3] = 0x00;
+    longq[4] = 0x02;
+    longq[5] = 0x75; // address 0x000275 -> ash
+    longq[6] = 0x00;
+    longq[7] = 0x02;
+    longq[8] = 0x7B; // address 0x00027B -> soot
 
-        if (iso_tp_send(longq, 6))
-        {
-          uint8_t bts;
-          bts = 16;
-          if (iso_tp_recv(longq, bts))
-          {
-            IO_U.println(F("successfully read ISO-TP frame"));
-            IO_U.println(F("received "),bts,F("bytes"));
-            IO_U.println(longq[0], HEX);
-            IO_U.println(longq[1], HEX);
-            IO_U.println(longq[2], HEX);
-          }
-        }
-    */
+    if (iso_tp_send(longq, 9))
+    {
+      uint8_t bts;
+      bts = 16;
+      if (iso_tp_recv(longq, &bts))
+      {
+        IO_U.println(F("successfully read ISO-TP frame"));
+        IO_U.print(F("received "));
+        IO_U.print(bts);
+        IO_U.print(F("bytes"));
+        IO_U.println(longq[0], HEX);
+        IO_U.println(longq[1], HEX);
+        IO_U.println(longq[2], HEX);
+      }
+    }
 
 #endif // _DPF
 
@@ -488,13 +490,13 @@ bool read_address(uint16_t id, uint8_t *answer) {
 
 // send an ISO-TP formatted frame to the ECU
 // we do not consider any timeouts or wait periods here
-bool iso_tp_send(uint8_t *message, uint8_t length)
+bool iso_tp_send(uint8_t *message, uint8_t len)
 {
   tCAN rtx_message; // CAN frame buffer
   uint8_t count;    // count the bytes we've sent already
 
   // single- or multi-frame?
-  if (length < 8)
+  if (len < 8)
   {
     // single-frame
 
@@ -505,12 +507,13 @@ bool iso_tp_send(uint8_t *message, uint8_t length)
     rtx_message.id = 0x7e0;                             // send to ECU
     rtx_message.header.rtr = 0;
     rtx_message.header.length = 8;                      // CAN message always needs to be 8 bytes (SSM), so pad with 0's till the end
-    rtx_message.data[0] = length;                       // number of bytes to follow (the first 4 bits make up 0 for a single frame)
-    for (count = 0; count < length; count++)
+    for (count = 0; count < len; count++)
     {
-      rtx_message.data[count + 1] = message[count];     // fill in message bytes
+      rtx_message.data[count] = message[count];         // fill in message bytes
+                                                        // number of bytes to follow (the first 4 bits make up 0 for a single frame)
+                                                        // needs to be byte 0 from input message
     }
-    memset(&rtx_message.data[count + 1], 0, 7 - count); // pad rest of the frame w/ 0's
+    memset(&rtx_message.data[count], 0, 8 - count); // pad rest of the frame w/ 0's
 
     mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
     if (!mcp2515_send_message(&rtx_message))
@@ -535,7 +538,7 @@ bool iso_tp_send(uint8_t *message, uint8_t length)
     rtx_message.header.rtr = 0;
     rtx_message.header.length = 8;                  // CAN message always needs to be 8 bytes (SSM), so pad with 0's till the end
     rtx_message.data[0] = 0x10;                     // first frame of multi-frame message
-    rtx_message.data[1] = length;                   // number of bytes to follow for all frames combined
+    rtx_message.data[1] = len;                      // number of bytes to follow for all frames combined
     for (count = 0; count < 6; count++)
     {
       rtx_message.data[count + 2] = message[count]; // fill in message bytes
@@ -583,15 +586,15 @@ bool iso_tp_send(uint8_t *message, uint8_t length)
     }
 
     // got it, send remaining frames
-    for (uint8_t fcount = 0; fcount < ((length - 6) / 7 + ((length - 6) % 7 != 0)); fcount++)
+    for (uint8_t fcount = 0; fcount < ((len - 6) / 7 + ((len - 6) % 7 != 0)); fcount++)
     {
       rtx_message.id = 0x7e0;                  // send to ECU
       rtx_message.header.rtr = 0;
       rtx_message.header.length = 8;           // CAN message always needs to be 8 bytes (SSM), so pad with 0's till the end
       rtx_message.data[0] = 0x20 + fcount + 1; // consecutive frames
-      rtx_message.data[1] = length;            // number of bytes to follow for all frames combined
+      rtx_message.data[1] = len;               // number of bytes to follow for all frames combined
       uint8_t i = 1;
-      for (count; count < (length < 7 + fcount * 7 + 6 ? length : 7 + fcount * 7 + 6); count++)
+      for (count; count < (len < 7 + fcount * 7 + 6 ? len : 7 + fcount * 7 + 6); count++)
       {
         rtx_message.data[i] = message[count];  // fill in message bytes
         i++;
@@ -615,74 +618,105 @@ bool iso_tp_send(uint8_t *message, uint8_t length)
 
 // receive an ISO-TP formatted frame from the ECU
 // data needs to be large enough to hold all received data...
-bool iso_tp_recv(uint8_t *data, uint8_t *length)
+bool iso_tp_recv(uint8_t *data, uint8_t *len)
 {
   tCAN rtx_message; // CAN frame buffer
   uint8_t count;    // count the bytes we've received already
 
   // we expect a message from the ECU, so wait/check for it
-  if (mcp2515_check_message())
+  bool MSG_RCV = false;
+  while (!MSG_RCV)
   {
-    if (mcp2515_get_message(&rtx_message))
+    if (mcp2515_check_message())
     {
-      if (rtx_message.id == 0x7e8) // anything else would be a surprise anyway, see filters in setup()
+      if (mcp2515_get_message(&rtx_message))
       {
-        // indicate receive
-        SET(LED2S);
-        // check CAN payload to tell single- and multi-frame messages apart
-
-        // Up to 7 bytes returned from the ECU will be within a single-frame message.
-        // (We need 1 byte to indicate message type). The 7 bytes will have to include
-        // E8 to signal the answer to A8, so an actual payload of 6 bytes should be
-        // possible before we need multi-frame receives?
-        if ( rtx_message.data[0] == 0x10 ) // a multi-frame message
+        // DBG: display message
+        // CAN id
+        if (rtx_message.id < 0x100) IO_U.print(F("0"));
+        if (rtx_message.id < 0x10)  IO_U.print(F("0"));
+        IO_U.print(rtx_message.id, HEX);
+        IO_U.print(F("#"));
+        // CAN payload
+        for (uint8_t i = 0; i < rtx_message.header.length; i++)
         {
-          // send abort and implement later
-          rtx_message.id = 0x7e0;
-          rtx_message.header.rtr = 0;
-          rtx_message.header.length = 8;     // ISO-TP message w/ 3 bytes, SSM wants 8?
-          rtx_message.data[0] = 0x32;        // this should signal an abort?
-          rtx_message.data[1] = 0x00;        // 0x00 to pad to 8 bytes
-          rtx_message.data[2] = 0x00;
-          rtx_message.data[3] = 0x00;
-          rtx_message.data[4] = 0x00;
-          rtx_message.data[5] = 0x00;
-          rtx_message.data[6] = 0x00;
-          rtx_message.data[7] = 0x00;
-
-          // Indicate transmit
-          SET(LED1S);
-
-          mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
-          mcp2515_send_message(&rtx_message);
-
-          delay(200);
-          RESET(LED1S);
-          RESET(LED2S);
-          return false;
-
+          if (rtx_message.data[i] < 0x10) IO_U.print(F("0"));
+          IO_U.print(rtx_message.data[i], HEX);
+          IO_U.print(F(" "));
         }
-        else // we have a single frame message (or something different alltogether)
+        // CRLF and flush
+        IO_U.println(F(""));
+        IO_U.flush();
+
+        if (rtx_message.id == 0x7e8) // anything else would be a surprise anyway, see filters in setup()
         {
-          // get number of bytes to expect
-          count = rtx_message.data[0] - 1; // -1 since we expect the E8
-          if ( count > length) return false; // make sure we have enough space
-          if (rtx_message.data[1] == 0xE8) // answer should start with E8 (SSM)
+          // indicate receive
+          SET(LED2S);
+
+          // check CAN payload to tell single- and multi-frame messages apart
+
+          // Up to 7 bytes returned from the ECU will be within a single-frame message.
+          // (We need 1 byte to indicate message type). The 7 bytes will have to include
+          // E8 to signal the answer to A8, so an actual payload of 6 bytes should be
+          // possible before we need multi-frame receives?
+          if ( rtx_message.data[0] == 0x10 ) // a multi-frame message
           {
-            uint8_t i = 0;
-            for ( count; count > 0; count--)
-            {
-              data[i] = rtx_message.data[i + 2];
-              i++;
-            }
+            // send abort and implement later
+            rtx_message.id = 0x7e0;
+            rtx_message.header.rtr = 0;
+            rtx_message.header.length = 8;     // ISO-TP message w/ 3 bytes, SSM wants 8?
+            rtx_message.data[0] = 0x32;        // this should signal an abort?
+            rtx_message.data[1] = 0x00;        // 0x00 to pad to 8 bytes
+            rtx_message.data[2] = 0x00;
+            rtx_message.data[3] = 0x00;
+            rtx_message.data[4] = 0x00;
+            rtx_message.data[5] = 0x00;
+            rtx_message.data[6] = 0x00;
+            rtx_message.data[7] = 0x00;
+
+            // Indicate transmit
+            SET(LED1S);
+
+            mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
+            mcp2515_send_message(&rtx_message);
+
             delay(200);
+            RESET(LED1S);
             RESET(LED2S);
-            return true;
+            return false;
+
           }
-        } // frame type
-      } // is correct message
-    } // get message
-  } // check msg
+          else // we have a single frame message (or something different alltogether)
+          {
+            // get number of bytes to expect
+            count = rtx_message.data[0] - 1; // -1 since we expect the E8
+            if ( count > *len) return false; // make sure we have enough space
+            *len = count;
+            IO_U.println(count);
+            if (rtx_message.data[1] == 0xE8) // answer should start with E8 (SSM)
+            {
+              uint8_t i = 0;
+              for ( count; count > 0; count--)
+              {
+                IO_U.println(i);
+                IO_U.println(rtx_message.data[i + 2], HEX);
+                data[i] = rtx_message.data[i + 2];
+                i++;
+              }
+              delay(200);
+              RESET(LED2S);
+              return true;
+            }
+          } // frame type
+          return false;
+        } // is correct message
+        return false;
+      } // get message
+      return false;
+      MSG_RCV = true;
+    } // check msg
+  }
+  return false;
 }
 
 // Flash LED1 and LED2 in turn to indicate something
