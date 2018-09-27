@@ -335,14 +335,13 @@ void loop() {
 
     // test ISO-TP send/recv w/ data for ECU
     uint8_t longq[16];
-    longq[0] = 0x05; // 5 bytes will follow
-    longq[1] = 0xA8; // SSM read mem address
-    longq[2] = 0x00; // required
-    longq[3] = 0x00;
-    longq[4] = 0x02;
-    longq[5] = 0x75; // address 0x000275
+    longq[0] = 0xA8; // SSM read mem address
+    longq[1] = 0x00; // required
+    longq[2] = 0x00;
+    longq[3] = 0x02;
+    longq[4] = 0x75; // address 0x000275
 
-    if (iso_tp_send(longq, 6))
+    if (iso_tp_send(longq, 5))
     {
       uint8_t bts;
       bts = 16;
@@ -357,17 +356,16 @@ void loop() {
         IO_U.println(longq[2], HEX);
       }
     }
-    longq[0] = 0x08; // 8 bytes will follow
-    longq[1] = 0xA8; // SSM read mem address
-    longq[2] = 0x00; // required
-    longq[3] = 0x00;
-    longq[4] = 0x02;
-    longq[5] = 0x75; // address 0x000275 -> ash
-    longq[6] = 0x00;
-    longq[7] = 0x02;
-    longq[8] = 0x7B; // address 0x00027B -> soot
+    longq[0] = 0xA8; // SSM read mem address
+    longq[1] = 0x00; // required
+    longq[2] = 0x00;
+    longq[3] = 0x02;
+    longq[4] = 0x75; // address 0x000275 -> ash
+    longq[5] = 0x00;
+    longq[6] = 0x02;
+    longq[7] = 0x7B; // address 0x00027B -> soot
 
-    if (iso_tp_send(longq, 9))
+    if (iso_tp_send(longq, 8))
     {
       uint8_t bts;
       bts = 16;
@@ -496,7 +494,7 @@ bool iso_tp_send(uint8_t *message, uint8_t len)
   uint8_t count;    // count the bytes we've sent already
 
   // single- or multi-frame?
-  if (len < 9)
+  if (len < 8) // first byte will be length of message...
   {
     // single-frame
 
@@ -508,11 +506,10 @@ bool iso_tp_send(uint8_t *message, uint8_t len)
     rtx_message.header.rtr = 0;
     rtx_message.header.length = 8;                      // CAN message always needs to be 8 bytes (SSM), so pad with 0's till the end
     memset(&rtx_message.data[0], 0, 8);                 // pad rest of the frame w/ 0's
-    for (count = 0; count < len; count++)
+    rtx_message.data[0] = len;                          //   number of bytes to follow (the first 4 bits make up 0 for a single frame)
+    for (count = 1; count < len; count++)
     {
-      rtx_message.data[count] = message[count];         // fill in message bytes
-                                                        //   number of bytes to follow (the first 4 bits make up 0 for a single frame)
-                                                        //   needs to be byte 0 from input message
+      rtx_message.data[count] = message[count - 1];     // fill in message bytes
     }
 
     mcp2515_bit_modify(CANCTRL, (1 << REQOP2) | (1 << REQOP1) | (1 << REQOP0), 0);
